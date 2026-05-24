@@ -1,0 +1,19 @@
+ClevoRGBControl release
+
+Files:
+- ClevoRGBControlSetup.exe: self-contained Windows x64 installer.
+- ClevoRGBControl-win-x64.zip: same installer plus license and notes.
+
+Install:
+1. Run ClevoRGBControlSetup.exe as Administrator.
+2. Copy InsydeDCHU.dll to:
+   C:\Program Files\ClevoRGBControl\Service
+3. Use the tray icon to configure lighting.
+
+Uninstall:
+- Use Windows Settings > Apps, or run ClevoRGBControlSetup.exe again and choose uninstall.
+
+Notes:
+- Windows 10/11 x64 only.
+- InsydeDCHU.dll is not included.
+- Licensed under GPL-3.0.

@@ -1,0 +1,9 @@
+bin/
+obj/
+publish/
+.tmp-edge-tests/
+*.user
+*.suo
+*.zip
+*.tmp
+.vs/
