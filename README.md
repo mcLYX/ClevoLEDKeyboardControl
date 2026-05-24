@@ -1,76 +1,76 @@
 # ClevoRGBControl
 
-ClevoRGBControl is a Windows service and tray controller for Clevo-compatible laptop keyboard RGB lighting.
+ClevoRGBControl 是一个面向 Clevo 兼容机型的键盘 RGB 灯效控制程序，采用 Windows 服务 + 托盘控制的方式运行。
 
-It uses `InsydeDCHU.dll` to write keyboard LED colors, so the DLL from the vendor keyboard LED software is required.
+程序通过 `InsydeDCHU.dll` 控制键盘灯，所以需要配套的厂商 DLL。
 
-## Features
+## 功能
 
-- Runs as a Windows service.
-- Tray menu for quick control.
-- Fixed color, RGB loop, breathing, color sequence, music mode and off mode.
-- Global brightness and speed controls.
-- Music mode based on system output audio level.
-- Idle dimming and simple time schedule.
-- Self-contained installer for Windows x64.
+- Windows 服务后台运行
+- 托盘菜单快速控制
+- 固定颜色、RGB 循环、单色呼吸、色彩序列、音乐模式、关闭灯效
+- 全局亮度、速度控制
+- 音乐模式跟随系统输出音量变化
+- 空闲降亮和简单时间计划
+- 提供自包含的 Windows x64 安装器
 
-## Install
+## 安装
 
-1. Download `ClevoRGBControlSetup.exe` from Releases.
-2. Run it as Administrator.
-3. Copy `InsydeDCHU.dll` to:
+1. 从 Releases 下载 `ClevoRGBControlSetup.exe`
+2. 以管理员身份运行
+3. 将 `InsydeDCHU.dll` 复制到：
 
 ```text
 C:\Program Files\ClevoRGBControl\Service
 ```
 
-The service name is:
+服务名称：
 
 ```text
 ClevoRGBControlService
 ```
 
-## Uninstall
+## 卸载
 
-Use Windows Settings > Apps, or run `ClevoRGBControlSetup.exe` again and choose uninstall.
+可以在 Windows 设置 > 应用中卸载，或再次运行 `ClevoRGBControlSetup.exe` 选择卸载。
 
-Command-line uninstall:
+命令行卸载：
 
 ```powershell
 ClevoRGBControlSetup.exe /uninstall
 ```
 
-## Build
+## 构建
 
-Requirements:
+环境要求：
 
 - Windows 10/11 x64
 - .NET SDK
 
-Build:
+构建源码：
 
 ```powershell
 dotnet build .\ColorfulLedKeyboard.slnx -c Release
 ```
 
-Create installer:
+生成安装器：
 
 ```powershell
 .\scripts\publish.ps1
 ```
 
-The installer is generated at:
+安装器输出：
 
 ```text
 publish\ClevoRGBControlSetup.exe
 ```
 
-## Acknowledgements
+## 致谢
 
-This project is based on the hardware control approach from [moshuiD/Colorful-Keyborad-Led-Color-Setting](https://github.com/moshuiD/Colorful-Keyborad-Led-Color-Setting).
+本项目基于 [moshuiD/Colorful-Keyborad-Led-Color-Setting](https://github.com/moshuiD/Colorful-Keyborad-Led-Color-Setting) 的硬件控制思路。
 
-The original project identified the use of `InsydeDCHU.dll` and `SetDCHU_Data` for controlling the keyboard LED colors. ClevoRGBControl extends that idea into a Windows service, tray app, installer and additional lighting effects.
+原项目确认了使用 `InsydeDCHU.dll` 和 `SetDCHU_Data` 控制键盘灯的方式，ClevoRGBControl 在此基础上扩展为 Windows 服务、托盘程序、安装器和更多灯效。
 
-## License
+## 许可证
 
-GPL-3.0. See [LICENSE](LICENSE).
+GPL-3.0，见 [LICENSE](LICENSE)。
