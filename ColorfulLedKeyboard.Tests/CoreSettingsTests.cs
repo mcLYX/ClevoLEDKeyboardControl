@@ -38,6 +38,24 @@ public sealed class CoreSettingsTests
     }
 
     [Fact]
+    public void LightingFrameGenerator_Next_AllowsBrightnessOverride()
+    {
+        var settings = new KeyboardSettings
+        {
+            Brightness = 0,
+            Effect = new LightingEffectSettings
+            {
+                Type = EffectType.Static,
+                Color = "#00FF00"
+            }
+        }.Normalize();
+
+        var color = new LightingFrameGenerator(settings).Next(100);
+
+        Assert.Equal("#00FF00", color.Hex);
+    }
+
+    [Fact]
     public void AppProfileRule_BuildEffect_UsesManualColorWhenAutoColorDisabled()
     {
         var rule = new AppProfileRule
@@ -62,12 +80,39 @@ public sealed class CoreSettingsTests
         {
             ProcessName = "Spotify.exe",
             Brightness = 200,
-            TargetEffect = EffectType.Music
+            TargetEffect = EffectType.Sequence
         }.Normalize();
 
         Assert.Equal("Spotify", rule.ProcessName);
         Assert.Equal(100, rule.Brightness);
         Assert.Equal(EffectType.Static, rule.TargetEffect);
+    }
+
+    [Fact]
+    public void AppProfileRule_Normalize_AllowsMusicMode()
+    {
+        var rule = new AppProfileRule
+        {
+            ProcessName = "Spotify.exe",
+            TargetEffect = EffectType.Music
+        }.Normalize();
+
+        Assert.Equal(EffectType.Music, rule.TargetEffect);
+    }
+
+    [Fact]
+    public void LightingPresets_DoNotOverrideGlobalBrightness()
+    {
+        var settings = new KeyboardSettings { Brightness = 22 }.Normalize();
+
+        LightingPresets.ApplyWarmWhite(settings);
+        Assert.Equal(22, settings.Brightness);
+
+        LightingPresets.ApplySoftRainbow(settings);
+        Assert.Equal(22, settings.Brightness);
+
+        LightingPresets.ApplyRedBluePulse(settings);
+        Assert.Equal(22, settings.Brightness);
     }
 
     [Fact]
@@ -85,13 +130,32 @@ public sealed class CoreSettingsTests
     }
 
     [Fact]
+    public void MusicSettings_Normalize_RemovesCustomPresetsThatConflictWithBuiltIns()
+    {
+        var settings = new MusicSettings
+        {
+            CustomPresets =
+            [
+                new MusicPreset { Name = "自定义" },
+                new MusicPreset { Name = "My Preset" }
+            ]
+        }.Normalize();
+
+        Assert.DoesNotContain(settings.CustomPresets, preset => preset.Name == "自定义");
+        Assert.Contains(settings.CustomPresets, preset => preset.Name == "My Preset");
+    }
+
+    [Fact]
     public void MusicSettings_ApplyPreset_SynchronizesLegacyLevelColorFlag()
     {
         var settings = new MusicSettings();
         var preset = new MusicPreset
         {
             Name = "Pulse",
-            ResponseMode = MusicResponseMode.BrightnessPulse
+            ResponseMode = MusicResponseMode.BrightnessPulse,
+            EqEnabled = true,
+            EqLowHz = 70,
+            EqHighHz = 210
         };
 
         settings.ApplyPreset(preset);
@@ -99,6 +163,54 @@ public sealed class CoreSettingsTests
         Assert.Equal("Pulse", settings.PresetName);
         Assert.Equal(MusicResponseMode.BrightnessPulse, settings.ResponseMode);
         Assert.False(settings.LevelColorEnabled);
+        Assert.True(settings.EqEnabled);
+        Assert.Equal(70, settings.EqLowHz);
+        Assert.Equal(210, settings.EqHighHz);
+    }
+
+    [Fact]
+    public void MusicSettings_BuiltInPresets_UseNewAdaptivePresetSet()
+    {
+        var names = MusicSettings.BuiltInPresets.Select(preset => preset.Name).ToArray();
+
+        Assert.Contains("自定义", names);
+        Assert.Contains("流行", names);
+        Assert.Contains("摇滚", names);
+        Assert.Contains("电子", names);
+        Assert.DoesNotContain("经典", names);
+
+        var custom = MusicSettings.BuiltInPresets.Single(preset => preset.Name == "自定义");
+        Assert.Equal(MusicResponseMode.BrightnessPulse, custom.ResponseMode);
+        Assert.True(custom.EqEnabled);
+    }
+
+    [Fact]
+    public void SpotifySettings_DefaultsAlbumColorSourceToWindowsMediaSession()
+    {
+        var settings = new SpotifySettings().Normalize();
+
+        Assert.Equal(AlbumColorSource.WindowsMediaSession, settings.AlbumColorSource);
+    }
+
+    [Fact]
+    public void MusicSettings_Normalize_KeepsBaseBrightnessIndependentFromGlobalBrightness()
+    {
+        var settings = new KeyboardSettings
+        {
+            Brightness = 70,
+            Effect = new LightingEffectSettings
+            {
+                Type = EffectType.Music,
+                Music = new MusicSettings
+                {
+                    BaseBrightness = 5,
+                    PeakBrightness = 100
+                }
+            }
+        }.Normalize();
+
+        Assert.Equal(70, settings.Brightness);
+        Assert.Equal(5, settings.Effect.Music.BaseBrightness);
     }
 
     [Fact]

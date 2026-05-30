@@ -26,6 +26,8 @@ public sealed class KeyboardSettings
 
     public UpdateSettings Update { get; set; } = new();
 
+    public NotificationFlashSettings NotificationFlash { get; set; } = new();
+
     public KeyboardSettings Normalize(bool migrateLegacyMode = false)
     {
         Brightness = Math.Clamp(Brightness, 0, 100);
@@ -86,6 +88,8 @@ public sealed class KeyboardSettings
         TypingPulse.Normalize();
         Update ??= new UpdateSettings();
         Update.Normalize();
+        NotificationFlash ??= new NotificationFlashSettings();
+        NotificationFlash.Normalize();
         Mode = Effect.Type switch
         {
             EffectType.Static => KeyboardMode.Static,
@@ -161,6 +165,14 @@ public sealed class KeyboardSettings
             Update = new UpdateSettings
             {
                 CheckInterval = Update.CheckInterval
+            },
+            NotificationFlash = new NotificationFlashSettings
+            {
+                Enabled = NotificationFlash.Enabled,
+                Color = NotificationFlash.Color,
+                Pulses = NotificationFlash.Pulses,
+                PulseMs = NotificationFlash.PulseMs,
+                CooldownSeconds = NotificationFlash.CooldownSeconds
             }
         }.Normalize();
     }
@@ -192,6 +204,17 @@ public sealed class KeyboardSettings
                 NoiseGate = effect.Music.NoiseGate,
                 BeatThreshold = effect.Music.BeatThreshold,
                 PeakHoldMs = effect.Music.PeakHoldMs,
+                EqEnabled = effect.Music.EqEnabled,
+                EqLowHz = effect.Music.EqLowHz,
+                EqHighHz = effect.Music.EqHighHz,
+                Spotify = new SpotifySettings
+                {
+                    AlbumColorEnabled = effect.Music.Spotify.AlbumColorEnabled,
+                    AlbumColorSource = effect.Music.Spotify.AlbumColorSource,
+                    ClientId = effect.Music.Spotify.ClientId,
+                    RefreshToken = effect.Music.Spotify.RefreshToken,
+                    LastAlbumColor = effect.Music.Spotify.LastAlbumColor
+                },
                 CustomPresets = effect.Music.CustomPresets.Select(preset => new MusicPreset
                 {
                     Name = preset.Name,
@@ -206,7 +229,10 @@ public sealed class KeyboardSettings
                     IntervalMs = preset.IntervalMs,
                     NoiseGate = preset.NoiseGate,
                     BeatThreshold = preset.BeatThreshold,
-                    PeakHoldMs = preset.PeakHoldMs
+                    PeakHoldMs = preset.PeakHoldMs,
+                    EqEnabled = preset.EqEnabled,
+                    EqLowHz = preset.EqLowHz,
+                    EqHighHz = preset.EqHighHz
                 }).ToList()
             },
             Sequence = effect.Sequence.Select(item => new SequenceColor

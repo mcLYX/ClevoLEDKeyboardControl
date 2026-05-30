@@ -5,7 +5,6 @@ public static class LightingPresets
     public static void ApplyWarmWhite(KeyboardSettings settings)
     {
         settings.Enabled = true;
-        settings.Brightness = 45;
         settings.Effect = new LightingEffectSettings
         {
             Type = EffectType.Static,
@@ -17,7 +16,6 @@ public static class LightingPresets
     public static void ApplyNeutralWhite(KeyboardSettings settings)
     {
         settings.Enabled = true;
-        settings.Brightness = 55;
         settings.Effect = new LightingEffectSettings
         {
             Type = EffectType.Static,
@@ -29,7 +27,6 @@ public static class LightingPresets
     public static void ApplyCoolWhite(KeyboardSettings settings)
     {
         settings.Enabled = true;
-        settings.Brightness = 60;
         settings.Effect = new LightingEffectSettings
         {
             Type = EffectType.Static,
@@ -41,7 +38,6 @@ public static class LightingPresets
     public static void ApplyRedBluePulse(KeyboardSettings settings)
     {
         settings.Enabled = true;
-        settings.Brightness = 70;
         settings.Effect = new LightingEffectSettings
         {
             Type = EffectType.Sequence,
@@ -58,7 +54,6 @@ public static class LightingPresets
     public static void ApplySoftRainbow(KeyboardSettings settings)
     {
         settings.Enabled = true;
-        settings.Brightness = 45;
         settings.Effect = new LightingEffectSettings
         {
             Type = EffectType.Rainbow,

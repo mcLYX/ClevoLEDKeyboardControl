@@ -1,19 +1,33 @@
-ClevoRGBControl 发布说明
+ClevoRGBControl v1.2.0
 
-文件：
-- ClevoRGBControlSetup.exe：Windows x64 自包含安装器
-- ClevoRGBControl-win-x64.zip：安装器、许可证和说明
+新增功能：
+- 音乐模式加入自适应鼓点检测，响应更接近鼓点和节奏。
+- 音乐模式支持 Windows 通用媒体会话封面取色，默认可用于支持系统媒体信息的播放器。
+- 保留 Spotify OAuth 封面取色，可作为专用来源使用。
+- 专辑封面主题色脉冲仅在“自定义”音乐预设下启用，避免和内置预设状态冲突。
+- 音乐预设调整为“自定义、流行、摇滚、电子”，移除“经典”预设。
+- 应用场景配置支持切换到音乐模式。
+- 新增 Windows 通知闪烁，收到系统通知时可短促闪烁键盘。
+- 音乐模式参数、通知闪烁、应用场景和亮度管理相关设置已纳入诊断和配置流程。
+
+修复和优化：
+- 优化音乐模式延迟和稳定性，减少响应滞后。
+- 调整音乐预设参数，降低长时间保持低亮度的概率。
+- 修复专辑封面主题色脉冲按钮在切换内置预设后仍显示开启的问题。
+- 修复音乐模式基础亮度和全局亮度之间的冲突。
+- 修复通知闪烁只在音乐模式下触发的问题。
+- 修复保存设置后可能意外回到 RGB 循环的问题。
+- 优化应用场景配置的颜色和亮度管理逻辑。
 
 安装：
-1. 以管理员身份运行 ClevoRGBControlSetup.exe
-2. 将 InsydeDCHU.dll 复制到：
-   C:\Program Files\ClevoRGBControl\Service
-3. 使用托盘图标配置灯效
+- 下载 ClevoRGBControlSetup.exe。
+- 以管理员身份运行安装器。
+- 安装器会优先从 C:\Program Files (x86)\ControlCenter 复制 InsydeDCHU.dll，找不到时使用内置备用 DLL。
 
 卸载：
-- 在 Windows 设置 > 应用中卸载，或再次运行安装器选择卸载
+- 在 Windows 设置 > 应用中卸载。
+- 或再次运行安装器选择卸载。
 
 说明：
-- 仅支持 Windows 10/11 x64
-- 不包含 InsydeDCHU.dll
-- 采用 GPL-3.0 协议
+- 支持 Windows 10/11 x64。
+- 采用 GPL-3.0 协议。

@@ -1,5 +1,6 @@
 using ColorfulLedKeyboard.Core;
 using System.Diagnostics;
+using System.Net;
 using static ColorfulLedKeyboard.Tray.UiMetrics;
 
 namespace ColorfulLedKeyboard.Tray;
@@ -41,8 +42,19 @@ public sealed class SettingsForm : Form
     private readonly ComboBox _musicResponseMode = new();
     private readonly SliderRow _musicNoiseGate = new("噪声门", 0, 50, "%");
     private readonly SliderRow _musicBeatThreshold = new("节拍阈值", 2, 80, "%");
+    private readonly CheckBox _musicEqEnabled = new() { Text = "自适应鼓点检测" };
+    private readonly SliderRow _musicEqLow = new("低频参考", 20, 1000, " Hz");
+    private readonly SliderRow _musicEqHigh = new("高频参考", 40, 8000, " Hz");
+    private readonly CheckBox _spotifyAlbumColorEnabled = new() { Text = "按专辑封面主题色脉冲" };
+    private readonly ComboBox _albumColorSource = new();
+    private readonly TextBox _spotifyClientId = new();
+    private readonly Button _spotifyAuthorize = new() { Text = "连接 Spotify" };
     private readonly SliderRow _musicBaseBrightness = new("基础亮度", 0, 100, "%");
     private readonly SliderRow _musicPeakBrightness = new("峰值亮度", 0, 100, "%");
+    private readonly CheckBox _notificationFlashEnabled = new() { Text = "收到 Windows 通知时闪烁键盘" };
+    private readonly ColorPickerRow _notificationFlashColor = new("通知闪烁颜色");
+    private readonly SliderRow _notificationFlashPulses = new("闪烁次数", 1, 5, " 次");
+    private readonly SliderRow _notificationFlashCooldown = new("冷却时间", 1, 60, " 秒");
     private readonly CheckBox _idleEnabled = new() { Text = "启用空闲降亮" };
     private readonly ComboBox _idleAfter = new();
     private readonly SliderRow _idleBrightness = new("空闲亮度", 0, 100, "%");
@@ -51,7 +63,6 @@ public sealed class SettingsForm : Form
     private readonly TimeRangePicker _evening = new("傍晚时段");
     private readonly TimeRangePicker _night = new("深夜时段");
     private readonly CheckBox _typingPulseEnabled = new() { Text = "启用敲字闪烁" };
-    private readonly SliderRow _typingPulseBaseBrightness = new("基础亮度", 0, 100, "%");
     private readonly SliderRow _typingPulsePeakBrightness = new("触发亮度", 0, 100, "%");
     private readonly SliderRow _typingPulseHold = new("保持时间", 20, 2000, " ms");
     private readonly SliderRow _typingPulseFade = new("回落时间", 50, 5000, " ms");
@@ -61,7 +72,10 @@ public sealed class SettingsForm : Form
     private static readonly double[] MusicSensitivityValues = [0.5, 1.0, 1.5, 2.0];
     private static readonly int[] MusicAttackValues = [10, 35, 100, 300, 1000];
     private static readonly int[] MusicReleaseValues = [80, 180, 500, 1000, 3000];
+    private const string AlbumColorPresetName = "自定义";
     private List<MusicPreset> _musicCustomPresets = [];
+    private bool _loadingSettings;
+    private bool _effectChangedByUser;
     private bool _loadingMusicPreset;
 
     public SettingsForm(SettingsStore settingsStore)
@@ -74,8 +88,15 @@ public sealed class SettingsForm : Form
 
         BuildUi();
         LoadSettings();
-        _effectType.SelectedIndexChanged += (_, _) => UpdateBrightnessAvailability();
-        _typingPulseEnabled.CheckedChanged += (_, _) => UpdateBrightnessAvailability();
+        _effectType.SelectedIndexChanged += (_, _) =>
+        {
+            if (!_loadingSettings)
+            {
+                _effectChangedByUser = true;
+            }
+
+            UpdateBrightnessAvailability();
+        };
     }
 
     private void BuildUi()
@@ -198,11 +219,22 @@ public sealed class SettingsForm : Form
             {
                 ApplyMusicPresetToControls(preset, refreshSelection: false);
             }
+
+            UpdateAlbumColorControlAvailability();
         };
         _musicApplyPreset.Click += (_, _) => ApplySelectedMusicPreset();
         _musicSavePreset.Click += (_, _) => SaveCustomMusicPreset();
         _musicDeletePreset.Click += (_, _) => DeleteSelectedCustomMusicPreset();
         _musicAdvanced.CheckedChanged += (_, _) => UpdateMusicAdvancedVisibility();
+        _albumColorSource.DropDownStyle = ComboBoxStyle.DropDownList;
+        _albumColorSource.Items.AddRange(["Windows 通用媒体会话", "Spotify OAuth", "自动"]);
+        _spotifyAlbumColorEnabled.CheckedChanged += (_, _) =>
+        {
+            ApplyAlbumColorPulseModeIfNeeded();
+            UpdateAlbumColorControlAvailability();
+        };
+        _spotifyClientId.Width = 330;
+        _spotifyAuthorize.Click += async (_, _) => await AuthorizeSpotifyAsync();
 
         page.Controls.Add(Row("音乐预设", _musicPreset));
         page.Controls.Add(ButtonRow(_musicApplyPreset, _musicSavePreset, _musicDeletePreset));
@@ -212,6 +244,10 @@ public sealed class SettingsForm : Form
         page.Controls.Add(_musicHighColor);
         page.Controls.Add(_musicBaseBrightness);
         page.Controls.Add(_musicPeakBrightness);
+        page.Controls.Add(PlainRow(_spotifyAlbumColorEnabled));
+        page.Controls.Add(Row("封面来源", _albumColorSource));
+        page.Controls.Add(Row("Spotify Client ID", _spotifyClientId));
+        page.Controls.Add(PlainRow(_spotifyAuthorize));
         page.Controls.Add(PlainRow(_musicAdvanced));
         _musicSensitivityRow = Row("灵敏度", _musicSensitivity);
         _musicAttackRow = Row("响应速度", _musicAttack);
@@ -221,6 +257,9 @@ public sealed class SettingsForm : Form
         page.Controls.Add(_musicReleaseRow);
         page.Controls.Add(_musicNoiseGate);
         page.Controls.Add(_musicBeatThreshold);
+        page.Controls.Add(PlainRow(_musicEqEnabled));
+        page.Controls.Add(_musicEqLow);
+        page.Controls.Add(_musicEqHigh);
         UpdateMusicAdvancedVisibility();
         return page;
     }
@@ -242,10 +281,14 @@ public sealed class SettingsForm : Form
         page.Controls.Add(_night);
         page.Controls.Add(Section("敲字闪烁"));
         page.Controls.Add(PlainRow(_typingPulseEnabled));
-        page.Controls.Add(_typingPulseBaseBrightness);
         page.Controls.Add(_typingPulsePeakBrightness);
         page.Controls.Add(_typingPulseHold);
         page.Controls.Add(_typingPulseFade);
+        page.Controls.Add(Section("通知闪烁"));
+        page.Controls.Add(PlainRow(_notificationFlashEnabled));
+        page.Controls.Add(_notificationFlashColor);
+        page.Controls.Add(_notificationFlashPulses);
+        page.Controls.Add(_notificationFlashCooldown);
         return page;
     }
 
@@ -335,57 +378,77 @@ public sealed class SettingsForm : Form
 
     private void LoadSettings()
     {
+        _loadingSettings = true;
         var settings = _settingsStore.Load();
-        _effectType.SelectedIndex = settings.Effect.Type switch
+        try
         {
-            EffectType.Static => 0,
-            EffectType.Rainbow => 1,
-            EffectType.Breathing => 2,
-            EffectType.Sequence => 3,
-            EffectType.Music => 4,
-            EffectType.Off => 5,
-            _ => 1
-        };
+            _effectType.SelectedIndex = settings.Effect.Type switch
+            {
+                EffectType.Static => 0,
+                EffectType.Rainbow => 1,
+                EffectType.Breathing => 2,
+                EffectType.Sequence => 3,
+                EffectType.Music => 4,
+                EffectType.Off => 5,
+                _ => 1
+            };
 
-        _brightness.Value = settings.Brightness;
-        _speed.SelectedIndex = SpeedToIndex(settings.Effect.Step, settings.Effect.IntervalMs);
-        _effectColor.ColorHex = settings.Effect.Color;
-        _period.Value = settings.Effect.PeriodMs;
-        _minimumBrightness.Value = settings.Effect.MinimumBrightness;
-        _hardBlink.Checked = settings.Effect.HardBlink;
-        _sequence.Colors = settings.Effect.Sequence.Select(item => item.Color).ToList();
-        _musicCustomPresets = settings.Effect.Music.CustomPresets.Select(CloneMusicPreset).ToList();
-        RefreshMusicPresetList(settings.Effect.Music.PresetName);
-        _musicPresetName.Text = IsBuiltInMusicPreset(settings.Effect.Music.PresetName) ? "" : settings.Effect.Music.PresetName;
-        _musicResponseMode.SelectedIndex = settings.Effect.Music.ResponseMode == MusicResponseMode.BrightnessPulse ? 1 : 0;
-        _musicLowColor.ColorHex = settings.Effect.Music.LowColor;
-        _musicHighColor.ColorHex = settings.Effect.Music.HighColor;
-        _musicSensitivity.SelectedIndex = ClosestIndex(MusicSensitivityValues, settings.Effect.Music.Sensitivity);
-        _musicAttack.SelectedIndex = ClosestIndex(MusicAttackValues, settings.Effect.Music.AttackMs);
-        _musicRelease.SelectedIndex = ClosestIndex(MusicReleaseValues, settings.Effect.Music.ReleaseMs);
-        _musicNoiseGate.Value = (int)Math.Round(settings.Effect.Music.NoiseGate * 100);
-        _musicBeatThreshold.Value = (int)Math.Round(settings.Effect.Music.BeatThreshold * 100);
-        _musicBaseBrightness.Value = settings.Effect.Music.BaseBrightness;
-        _musicPeakBrightness.Value = settings.Effect.Music.PeakBrightness;
-        _idleEnabled.Checked = settings.IdleDim.Enabled;
-        _idleAfter.SelectedIndex = SecondsToIdleIndex(settings.IdleDim.AfterSeconds);
-        _idleBrightness.Value = settings.IdleDim.Brightness;
-        _idleTurnOff.Checked = settings.IdleDim.TurnOff;
-        _scheduleEnabled.Checked = settings.Schedule.Enabled;
-        _typingPulseEnabled.Checked = settings.TypingPulse.Enabled;
-        _typingPulseBaseBrightness.Value = settings.TypingPulse.BaseBrightness;
-        _typingPulsePeakBrightness.Value = settings.TypingPulse.PeakBrightness;
-        _typingPulseHold.Value = settings.TypingPulse.HoldMs;
-        _typingPulseFade.Value = settings.TypingPulse.FadeMs;
-        _appProfilesEnabled.Checked = settings.AppProfiles.Enabled;
-        _appProfiles.Rules = settings.AppProfiles.Rules;
-        _updateInterval.SelectedIndex = UpdateIntervalToIndex(settings.Update.CheckInterval);
+            _brightness.Value = settings.Brightness;
+            _speed.SelectedIndex = SpeedToIndex(settings.Effect.Step, settings.Effect.IntervalMs);
+            _effectColor.ColorHex = settings.Effect.Color;
+            _period.Value = settings.Effect.PeriodMs;
+            _minimumBrightness.Value = settings.Effect.MinimumBrightness;
+            _hardBlink.Checked = settings.Effect.HardBlink;
+            _sequence.Colors = settings.Effect.Sequence.Select(item => item.Color).ToList();
+            _musicCustomPresets = settings.Effect.Music.CustomPresets.Select(CloneMusicPreset).ToList();
+            RefreshMusicPresetList(settings.Effect.Music.PresetName);
+            _musicPresetName.Text = IsBuiltInMusicPreset(settings.Effect.Music.PresetName) ? "" : settings.Effect.Music.PresetName;
+            _musicResponseMode.SelectedIndex = settings.Effect.Music.ResponseMode == MusicResponseMode.BrightnessPulse ? 1 : 0;
+            _musicLowColor.ColorHex = settings.Effect.Music.LowColor;
+            _musicHighColor.ColorHex = settings.Effect.Music.HighColor;
+            _musicSensitivity.SelectedIndex = ClosestIndex(MusicSensitivityValues, settings.Effect.Music.Sensitivity);
+            _musicAttack.SelectedIndex = ClosestIndex(MusicAttackValues, settings.Effect.Music.AttackMs);
+            _musicRelease.SelectedIndex = ClosestIndex(MusicReleaseValues, settings.Effect.Music.ReleaseMs);
+            _musicNoiseGate.Value = (int)Math.Round(settings.Effect.Music.NoiseGate * 100);
+            _musicBeatThreshold.Value = (int)Math.Round(settings.Effect.Music.BeatThreshold * 100);
+            _musicEqEnabled.Checked = settings.Effect.Music.EqEnabled;
+            _musicEqLow.Value = settings.Effect.Music.EqLowHz;
+            _musicEqHigh.Value = settings.Effect.Music.EqHighHz;
+            _spotifyAlbumColorEnabled.Checked = IsAlbumColorPreset(settings.Effect.Music.PresetName) &&
+                settings.Effect.Music.Spotify.AlbumColorEnabled;
+            _albumColorSource.SelectedIndex = AlbumColorSourceToIndex(settings.Effect.Music.Spotify.AlbumColorSource);
+            _spotifyClientId.Text = settings.Effect.Music.Spotify.ClientId;
+            _musicBaseBrightness.Value = settings.Effect.Music.BaseBrightness;
+            _musicPeakBrightness.Value = settings.Effect.Music.PeakBrightness;
+            UpdateAlbumColorControlAvailability();
+            _idleEnabled.Checked = settings.IdleDim.Enabled;
+            _idleAfter.SelectedIndex = SecondsToIdleIndex(settings.IdleDim.AfterSeconds);
+            _idleBrightness.Value = settings.IdleDim.Brightness;
+            _idleTurnOff.Checked = settings.IdleDim.TurnOff;
+            _scheduleEnabled.Checked = settings.Schedule.Enabled;
+            _typingPulseEnabled.Checked = settings.TypingPulse.Enabled;
+            _typingPulsePeakBrightness.Value = settings.TypingPulse.PeakBrightness;
+            _typingPulseHold.Value = settings.TypingPulse.HoldMs;
+            _typingPulseFade.Value = settings.TypingPulse.FadeMs;
+            _notificationFlashEnabled.Checked = settings.NotificationFlash.Enabled;
+            _notificationFlashColor.ColorHex = settings.NotificationFlash.Color;
+            _notificationFlashPulses.Value = settings.NotificationFlash.Pulses;
+            _notificationFlashCooldown.Value = settings.NotificationFlash.CooldownSeconds;
+            _appProfilesEnabled.Checked = settings.AppProfiles.Enabled;
+            _appProfiles.Rules = settings.AppProfiles.Rules;
+            _updateInterval.SelectedIndex = UpdateIntervalToIndex(settings.Update.CheckInterval);
 
-        var evening = settings.Schedule.Rules.FirstOrDefault(rule => rule.Name == "Evening");
-        var night = settings.Schedule.Rules.FirstOrDefault(rule => rule.Name == "Night");
-        _evening.SetRange(evening?.Start ?? "19:00", evening?.End ?? "23:30");
-        _night.SetRange(night?.Start ?? "23:30", night?.End ?? "07:00");
-        UpdateBrightnessAvailability();
+            var evening = settings.Schedule.Rules.FirstOrDefault(rule => rule.Name == "Evening");
+            var night = settings.Schedule.Rules.FirstOrDefault(rule => rule.Name == "Night");
+            _evening.SetRange(evening?.Start ?? "19:00", evening?.End ?? "23:30");
+            _night.SetRange(night?.Start ?? "23:30", night?.End ?? "07:00");
+            _effectChangedByUser = false;
+            UpdateBrightnessAvailability();
+        }
+        finally
+        {
+            _loadingSettings = false;
+        }
     }
 
     private void SaveSettings()
@@ -394,7 +457,11 @@ public sealed class SettingsForm : Form
         {
             var settings = _settingsStore.Load();
             settings.Enabled = true;
-            settings.Effect.Type = SelectedEffectType(settings.Effect.Type);
+            if (_effectChangedByUser)
+            {
+                settings.Effect.Type = SelectedEffectType(settings.Effect.Type);
+            }
+
             settings.Effect.Color = _effectColor.ColorHex;
             ApplySpeed(settings);
             settings.Effect.PeriodMs = _period.Value;
@@ -420,6 +487,13 @@ public sealed class SettingsForm : Form
             settings.Effect.Music.ReleaseMs = MusicReleaseValues[ClampIndex(_musicRelease.SelectedIndex, MusicReleaseValues.Length)];
             settings.Effect.Music.NoiseGate = _musicNoiseGate.Value / 100d;
             settings.Effect.Music.BeatThreshold = _musicBeatThreshold.Value / 100d;
+            settings.Effect.Music.EqEnabled = _musicEqEnabled.Checked;
+            settings.Effect.Music.EqLowHz = _musicEqLow.Value;
+            settings.Effect.Music.EqHighHz = _musicEqHigh.Value;
+            settings.Effect.Music.Spotify.AlbumColorEnabled = IsAlbumColorPreset(settings.Effect.Music.PresetName) &&
+                _spotifyAlbumColorEnabled.Checked;
+            settings.Effect.Music.Spotify.AlbumColorSource = IndexToAlbumColorSource(_albumColorSource.SelectedIndex);
+            settings.Effect.Music.Spotify.ClientId = _spotifyClientId.Text.Trim();
             settings.Effect.Music.BaseBrightness = _musicBaseBrightness.Value;
             settings.Effect.Music.PeakBrightness = _musicPeakBrightness.Value;
             settings.Effect.Music.CustomPresets = _musicCustomPresets.Select(CloneMusicPreset).ToList();
@@ -430,15 +504,19 @@ public sealed class SettingsForm : Form
             settings.Schedule.Enabled = _scheduleEnabled.Checked;
             settings.Schedule.Rules = BuildScheduleRules();
             settings.TypingPulse.Enabled = _typingPulseEnabled.Checked;
-            settings.TypingPulse.BaseBrightness = _typingPulseBaseBrightness.Value;
             settings.TypingPulse.PeakBrightness = _typingPulsePeakBrightness.Value;
             settings.TypingPulse.HoldMs = _typingPulseHold.Value;
             settings.TypingPulse.FadeMs = _typingPulseFade.Value;
+            settings.NotificationFlash.Enabled = _notificationFlashEnabled.Checked;
+            settings.NotificationFlash.Color = _notificationFlashColor.ColorHex;
+            settings.NotificationFlash.Pulses = _notificationFlashPulses.Value;
+            settings.NotificationFlash.CooldownSeconds = _notificationFlashCooldown.Value;
             settings.AppProfiles.Enabled = _appProfilesEnabled.Checked;
             settings.AppProfiles.Rules = _appProfiles.Rules;
             settings.Update.CheckInterval = IndexToUpdateInterval(_updateInterval.SelectedIndex);
             settings.Brightness = _brightness.Enabled ? _brightness.Value : settings.Brightness;
             _settingsStore.Save(settings);
+            _effectChangedByUser = false;
             Text = "ClevoRGBControl 设置 - 已保存";
         }
         catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
@@ -564,7 +642,7 @@ public sealed class SettingsForm : Form
     private void UpdateBrightnessAvailability()
     {
         var effect = SelectedEffectType(EffectType.Rainbow);
-        _brightness.Enabled = effect != EffectType.Music && !_typingPulseEnabled.Checked;
+        _brightness.Enabled = effect != EffectType.Music;
         _brightness.BackColor = _brightness.Enabled ? SystemColors.Window : SystemColors.Control;
     }
 
@@ -763,12 +841,41 @@ public sealed class SettingsForm : Form
         _musicRelease.SelectedIndex = ClosestIndex(MusicReleaseValues, preset.ReleaseMs);
         _musicNoiseGate.Value = (int)Math.Round(preset.NoiseGate * 100);
         _musicBeatThreshold.Value = (int)Math.Round(preset.BeatThreshold * 100);
+        _musicEqEnabled.Checked = preset.EqEnabled;
+        _musicEqLow.Value = preset.EqLowHz;
+        _musicEqHigh.Value = preset.EqHighHz;
         _musicBaseBrightness.Value = preset.BaseBrightness;
         _musicPeakBrightness.Value = preset.PeakBrightness;
         if (refreshSelection)
         {
             RefreshMusicPresetList(preset.Name);
         }
+
+        UpdateAlbumColorControlAvailability();
+    }
+
+    private void ApplyAlbumColorPulseModeIfNeeded()
+    {
+        if (_loadingSettings || !_spotifyAlbumColorEnabled.Checked || !IsAlbumColorPreset(SelectedMusicPresetName()))
+        {
+            return;
+        }
+
+        _musicResponseMode.SelectedIndex = 1;
+    }
+
+    private void UpdateAlbumColorControlAvailability()
+    {
+        var enabled = IsAlbumColorPreset(SelectedMusicPresetName());
+        if (!enabled)
+        {
+            _spotifyAlbumColorEnabled.Checked = false;
+        }
+
+        _spotifyAlbumColorEnabled.Enabled = enabled;
+        _albumColorSource.Enabled = enabled && _spotifyAlbumColorEnabled.Checked;
+        _spotifyClientId.Enabled = enabled && _spotifyAlbumColorEnabled.Checked;
+        _spotifyAuthorize.Enabled = enabled && _spotifyAlbumColorEnabled.Checked;
     }
 
     private MusicPreset BuildMusicPresetFromControls(string name)
@@ -785,7 +892,10 @@ public sealed class SettingsForm : Form
             BaseBrightness = _musicBaseBrightness.Value,
             PeakBrightness = _musicPeakBrightness.Value,
             NoiseGate = _musicNoiseGate.Value / 100d,
-            BeatThreshold = _musicBeatThreshold.Value / 100d
+            BeatThreshold = _musicBeatThreshold.Value / 100d,
+            EqEnabled = _musicEqEnabled.Checked,
+            EqLowHz = _musicEqLow.Value,
+            EqHighHz = _musicEqHigh.Value
         }.Normalize();
     }
 
@@ -803,13 +913,32 @@ public sealed class SettingsForm : Form
 
     private static bool IsBuiltInMusicPreset(string? name)
     {
-        return MusicSettings.BuiltInPresets.Any(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
+        return MusicSettings.IsBuiltInPresetName(name);
+    }
+
+    private static bool IsAlbumColorPreset(string? name)
+    {
+        return string.Equals(name?.Trim(), AlbumColorPresetName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static int ClampIndex(int index, int length)
     {
         return Math.Clamp(index, 0, Math.Max(0, length - 1));
     }
+
+    private static int AlbumColorSourceToIndex(AlbumColorSource source) => source switch
+    {
+        AlbumColorSource.SpotifyOAuth => 1,
+        AlbumColorSource.Automatic => 2,
+        _ => 0
+    };
+
+    private static AlbumColorSource IndexToAlbumColorSource(int index) => index switch
+    {
+        1 => AlbumColorSource.SpotifyOAuth,
+        2 => AlbumColorSource.Automatic,
+        _ => AlbumColorSource.WindowsMediaSession
+    };
 
     private void UpdateMusicAdvancedVisibility()
     {
@@ -819,6 +948,9 @@ public sealed class SettingsForm : Form
         if (_musicReleaseRow is not null) _musicReleaseRow.Visible = visible;
         _musicNoiseGate.Visible = visible;
         _musicBeatThreshold.Visible = visible;
+        _musicEqEnabled.Visible = visible;
+        _musicEqLow.Visible = visible;
+        _musicEqHigh.Visible = visible;
     }
 
     private static MusicPreset CloneMusicPreset(MusicPreset preset)
@@ -837,8 +969,41 @@ public sealed class SettingsForm : Form
             IntervalMs = preset.IntervalMs,
             NoiseGate = preset.NoiseGate,
             BeatThreshold = preset.BeatThreshold,
-            PeakHoldMs = preset.PeakHoldMs
+            PeakHoldMs = preset.PeakHoldMs,
+            EqEnabled = preset.EqEnabled,
+            EqLowHz = preset.EqLowHz,
+            EqHighHz = preset.EqHighHz
         }.Normalize();
+    }
+
+    private async Task AuthorizeSpotifyAsync()
+    {
+        try
+        {
+            var client = new SpotifyOAuthClient();
+            var refreshToken = await client.AuthorizeAsync(_spotifyClientId.Text.Trim());
+            var settings = _settingsStore.Load();
+            settings.Effect.Music.Spotify.ClientId = _spotifyClientId.Text.Trim();
+            settings.Effect.Music.Spotify.RefreshToken = refreshToken;
+            settings.Effect.Music.Spotify.AlbumColorEnabled = true;
+            settings.Effect.Music.Spotify.AlbumColorSource = AlbumColorSource.SpotifyOAuth;
+            settings.Effect.Music.PresetName = AlbumColorPresetName;
+            settings.Effect.Music.ResponseMode = MusicResponseMode.BrightnessPulse;
+            settings.Effect.Music.LevelColorEnabled = false;
+            _settingsStore.Save(settings);
+            RefreshMusicPresetList(AlbumColorPresetName);
+            _spotifyAlbumColorEnabled.Checked = true;
+            _albumColorSource.SelectedIndex = AlbumColorSourceToIndex(AlbumColorSource.SpotifyOAuth);
+            MessageBox.Show("Spotify 已连接。", "ClevoRGBControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpListenerException or HttpRequestException or TaskCanceledException)
+        {
+            MessageBox.Show(
+                $"Spotify 授权失败：{ex.Message}\n\n请确认 Spotify Developer Dashboard 已添加回调地址：\n{SpotifyOAuthClient.RedirectUri}",
+                "ClevoRGBControl",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
     }
 
     private DiagnosticsSnapshot CollectDiagnostics()
@@ -1281,7 +1446,6 @@ internal sealed class AppProfileEditor : UserControl
 {
     private readonly ListBox _list = new();
     private readonly TextBox _processName = new();
-    private readonly SliderRow _brightness = new("亮度", 0, 100, "%");
     private readonly ComboBox _effectType = new();
     private readonly ColorPickerRow _color = new("颜色");
     private readonly CheckBox _enabled = new() { Text = "启用此规则" };
@@ -1317,7 +1481,7 @@ internal sealed class AppProfileEditor : UserControl
         Controls.Add(_pickProcess);
 
         _effectType.DropDownStyle = ComboBoxStyle.DropDownList;
-        _effectType.Items.AddRange(["固定颜色", "单色呼吸"]);
+        _effectType.Items.AddRange(["固定颜色", "单色呼吸", "音乐模式"]);
         _effectType.Location = new Point(ControlLeft, 222);
         _effectType.Width = 300;
         _effectType.Height = 30;
@@ -1343,11 +1507,7 @@ internal sealed class AppProfileEditor : UserControl
         };
         Controls.Add(iconHint);
 
-        _brightness.Location = new Point(0, 350);
-        _brightness.ValueChanged += (_, _) => SaveSelected();
-        Controls.Add(_brightness);
-
-        _color.Location = new Point(0, 420);
+        _color.Location = new Point(0, 350);
         _color.ColorChanged += (_, _) => SaveSelected();
         Controls.Add(_color);
     }
@@ -1404,7 +1564,7 @@ internal sealed class AppProfileEditor : UserControl
         {
             Name = processName,
             ProcessName = processName,
-            AutoColorEnabled = false,
+            AutoColorEnabled = true,
             IconColor = iconColor,
             Brightness = 70,
             TargetEffect = EffectType.Static,
@@ -1434,7 +1594,6 @@ internal sealed class AppProfileEditor : UserControl
             var enabled = rule is not null;
             _processName.Enabled = enabled;
             _pickProcess.Enabled = enabled;
-            _brightness.Enabled = enabled;
             _effectType.Enabled = enabled;
             _color.Enabled = enabled;
             _enabled.Enabled = enabled;
@@ -1443,7 +1602,6 @@ internal sealed class AppProfileEditor : UserControl
             if (rule is null)
             {
                 _processName.Text = "";
-                _brightness.Value = 70;
                 _effectType.SelectedIndex = 0;
                 _enabled.Checked = false;
                 _useAppIconColor.Checked = false;
@@ -1453,7 +1611,6 @@ internal sealed class AppProfileEditor : UserControl
             }
 
             _processName.Text = rule.ProcessName;
-            _brightness.Value = rule.Brightness;
             _effectType.SelectedIndex = EffectToIndex(rule.TargetEffect);
             _enabled.Checked = rule.Enabled;
             _useAppIconColor.Checked = rule.AutoColorEnabled;
@@ -1477,7 +1634,6 @@ internal sealed class AppProfileEditor : UserControl
         rule.Name = string.IsNullOrWhiteSpace(rule.ProcessName) ? "新场景" : rule.ProcessName;
         rule.Enabled = _enabled.Checked;
         rule.AutoColorEnabled = _useAppIconColor.Checked;
-        rule.Brightness = _brightness.Value;
         rule.TargetEffect = IndexToEffect(_effectType.SelectedIndex);
         rule.ManualColor = _color.ColorHex;
         rule.Normalize();
@@ -1503,7 +1659,7 @@ internal sealed class AppProfileEditor : UserControl
         {
             rule.IconColor = dialog.SelectedIconColor;
         }
-        _useAppIconColor.Checked = false;
+        _useAppIconColor.Checked = true;
         _effectType.SelectedIndex = 0;
         SaveSelected();
     }
@@ -1534,12 +1690,14 @@ internal sealed class AppProfileEditor : UserControl
     private static int EffectToIndex(EffectType effect) => effect switch
     {
         EffectType.Breathing => 1,
+        EffectType.Music => 2,
         _ => 0
     };
 
     private static EffectType IndexToEffect(int index) => index switch
     {
         1 => EffectType.Breathing,
+        2 => EffectType.Music,
         _ => EffectType.Static
     };
 

@@ -15,7 +15,7 @@ public sealed class TypingPulseSettings
     public TypingPulseSettings Normalize()
     {
         BaseBrightness = Math.Clamp(BaseBrightness, 0, 100);
-        PeakBrightness = Math.Clamp(PeakBrightness, BaseBrightness, 100);
+        PeakBrightness = Math.Clamp(PeakBrightness, 0, 100);
         HoldMs = Math.Clamp(HoldMs, 20, 2000);
         FadeMs = Math.Clamp(FadeMs, 50, 5000);
         return this;

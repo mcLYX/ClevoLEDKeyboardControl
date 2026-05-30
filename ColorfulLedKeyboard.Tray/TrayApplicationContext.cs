@@ -10,6 +10,8 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly SettingsStore _settingsStore;
     private readonly UpdateChecker _updateChecker = new();
     private readonly TypingPulseHook _typingPulseHook = new();
+    private readonly NotificationFlashMonitor _notificationFlashMonitor;
+    private readonly SpotifyAlbumColorUpdater _spotifyAlbumColorUpdater;
     private readonly NotifyIcon _notifyIcon;
     private readonly System.Windows.Forms.Timer _foregroundTimer = new() { Interval = 1000 };
     private string? _balloonReleaseUrl;
@@ -21,6 +23,8 @@ public sealed class TrayApplicationContext : ApplicationContext
     {
         _settingsStore = settingsStore;
         _settings = _settingsStore.Load();
+        _notificationFlashMonitor = new NotificationFlashMonitor(_settingsStore);
+        _spotifyAlbumColorUpdater = new SpotifyAlbumColorUpdater(_settingsStore);
 
         _notifyIcon = new NotifyIcon
         {
@@ -35,6 +39,8 @@ public sealed class TrayApplicationContext : ApplicationContext
         _foregroundTimer.Tick += (_, _) => UpdateForegroundAppState();
         _foregroundTimer.Start();
         _typingPulseHook.SetEnabled(_settings.TypingPulse.Enabled);
+        _notificationFlashMonitor.SetEnabled(_settings.NotificationFlash.Enabled);
+        _spotifyAlbumColorUpdater.SetEnabled(_settings.Effect.Music.Spotify.AlbumColorEnabled);
         UpdateForegroundAppState();
         _ = CheckForUpdatesOnStartupAsync();
     }
@@ -48,6 +54,8 @@ public sealed class TrayApplicationContext : ApplicationContext
             _foregroundTimer.Stop();
             _foregroundTimer.Dispose();
             _typingPulseHook.Dispose();
+            _notificationFlashMonitor.Dispose();
+            _spotifyAlbumColorUpdater.Dispose();
         }
 
         base.Dispose(disposing);
@@ -166,7 +174,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private ToolStripMenuItem BuildBrightnessMenu()
     {
         var brightness = new ToolStripMenuItem($"亮度 ({_settings.Brightness}%)");
-        if (_settings.Effect.Type == EffectType.Music || _settings.TypingPulse.Enabled)
+        if (_settings.Effect.Type == EffectType.Music)
         {
             brightness.Enabled = false;
             brightness.Text = "亮度 (由当前模式控制)";
@@ -435,6 +443,8 @@ public sealed class TrayApplicationContext : ApplicationContext
             update(_settings);
             _settingsStore.Save(_settings);
             _typingPulseHook.SetEnabled(_settings.TypingPulse.Enabled);
+            _notificationFlashMonitor.SetEnabled(_settings.NotificationFlash.Enabled);
+            _spotifyAlbumColorUpdater.SetEnabled(_settings.Effect.Music.Spotify.AlbumColorEnabled);
             return true;
         }
         catch (UnauthorizedAccessException)
@@ -457,6 +467,8 @@ public sealed class TrayApplicationContext : ApplicationContext
     {
         _settings = _settingsStore.Load();
         _typingPulseHook.SetEnabled(_settings.TypingPulse.Enabled);
+        _notificationFlashMonitor.SetEnabled(_settings.NotificationFlash.Enabled);
+        _spotifyAlbumColorUpdater.SetEnabled(_settings.Effect.Music.Spotify.AlbumColorEnabled);
         var oldMenu = _notifyIcon.ContextMenuStrip;
         _notifyIcon.ContextMenuStrip = BuildMenu();
         oldMenu?.Dispose();

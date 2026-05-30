@@ -14,6 +14,11 @@ public sealed class LightingFrameGenerator
 
     public RgbColor Next()
     {
+        return Next(_settings.Brightness);
+    }
+
+    public RgbColor Next(int brightness)
+    {
         var elapsedMs = (DateTimeOffset.UtcNow - _startedAt).TotalMilliseconds;
         var color = _settings.Effect.Type switch
         {
@@ -25,7 +30,7 @@ public sealed class LightingFrameGenerator
             _ => RgbColor.Black
         };
 
-        return color.Scale(_settings.Brightness);
+        return color.Scale(Math.Clamp(brightness, 0, 100));
     }
 
     private RgbColor Rainbow(double elapsedMs)

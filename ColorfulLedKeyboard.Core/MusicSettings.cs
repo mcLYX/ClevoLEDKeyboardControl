@@ -30,6 +30,14 @@ public sealed class MusicSettings
 
     public int PeakHoldMs { get; set; } = 90;
 
+    public bool EqEnabled { get; set; } = true;
+
+    public int EqLowHz { get; set; } = 60;
+
+    public int EqHighHz { get; set; } = 180;
+
+    public SpotifySettings Spotify { get; set; } = new();
+
     public List<MusicPreset> CustomPresets { get; set; } = [];
 
     public MusicSettings Normalize()
@@ -51,10 +59,15 @@ public sealed class MusicSettings
         NoiseGate = Math.Clamp(NoiseGate, 0, 0.5);
         BeatThreshold = Math.Clamp(BeatThreshold, 0.02, 0.8);
         PeakHoldMs = Math.Clamp(PeakHoldMs, 0, 500);
+        EqLowHz = Math.Clamp(EqLowHz, 20, 1000);
+        EqHighHz = Math.Clamp(EqHighHz, EqLowHz + 10, 8000);
+        Spotify ??= new SpotifySettings();
+        Spotify.Normalize();
         LevelColorEnabled = ResponseMode == MusicResponseMode.LevelColor;
         CustomPresets = (CustomPresets ?? [])
             .Select(preset => preset.Normalize())
             .Where(preset => !string.IsNullOrWhiteSpace(preset.Name))
+            .Where(preset => !IsBuiltInPresetName(preset.Name))
             .GroupBy(preset => preset.Name, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.Last())
             .Take(8)
@@ -78,6 +91,9 @@ public sealed class MusicSettings
         NoiseGate = preset.NoiseGate;
         BeatThreshold = preset.BeatThreshold;
         PeakHoldMs = preset.PeakHoldMs;
+        EqEnabled = preset.EqEnabled;
+        EqLowHz = preset.EqLowHz;
+        EqHighHz = preset.EqHighHz;
         Normalize();
     }
 
@@ -97,26 +113,56 @@ public sealed class MusicSettings
             IntervalMs = IntervalMs,
             NoiseGate = NoiseGate,
             BeatThreshold = BeatThreshold,
-            PeakHoldMs = PeakHoldMs
+            PeakHoldMs = PeakHoldMs,
+            EqEnabled = EqEnabled,
+            EqLowHz = EqLowHz,
+            EqHighHz = EqHighHz
         }.Normalize();
+    }
+
+    public static bool IsBuiltInPresetName(string? name)
+    {
+        return !string.IsNullOrWhiteSpace(name) &&
+            BuiltInPresets.Any(preset => string.Equals(preset.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
     public static IReadOnlyList<MusicPreset> BuiltInPresets { get; } =
     [
         new MusicPreset
         {
+            Name = "自定义",
+            ResponseMode = MusicResponseMode.BrightnessPulse,
+            LowColor = "#0040FF",
+            HighColor = "#FF0040",
+            Sensitivity = 1.3,
+            AttackMs = 35,
+            ReleaseMs = 160,
+            BaseBrightness = 5,
+            PeakBrightness = 100,
+            NoiseGate = 0.07,
+            BeatThreshold = 0.16,
+            PeakHoldMs = 50,
+            EqEnabled = true,
+            EqLowHz = 50,
+            EqHighHz = 220
+        }.Normalize(),
+        new MusicPreset
+        {
             Name = "流行",
             ResponseMode = MusicResponseMode.LevelColor,
             LowColor = "#0040FF",
             HighColor = "#FF2A5F",
-            Sensitivity = 1.5,
-            AttackMs = 35,
-            ReleaseMs = 180,
+            Sensitivity = 1.15,
+            AttackMs = 25,
+            ReleaseMs = 150,
             BaseBrightness = 8,
             PeakBrightness = 100,
-            NoiseGate = 0.04,
-            BeatThreshold = 0.12,
-            PeakHoldMs = 90
+            NoiseGate = 0.08,
+            BeatThreshold = 0.18,
+            PeakHoldMs = 50,
+            EqEnabled = true,
+            EqLowHz = 50,
+            EqHighHz = 220
         }.Normalize(),
         new MusicPreset
         {
@@ -124,29 +170,17 @@ public sealed class MusicSettings
             ResponseMode = MusicResponseMode.BrightnessPulse,
             LowColor = "#FF2020",
             HighColor = "#FFFFFF",
-            Sensitivity = 1.7,
-            AttackMs = 20,
-            ReleaseMs = 130,
+            Sensitivity = 1.35,
+            AttackMs = 15,
+            ReleaseMs = 110,
             BaseBrightness = 18,
             PeakBrightness = 100,
-            NoiseGate = 0.06,
-            BeatThreshold = 0.10,
-            PeakHoldMs = 70
-        }.Normalize(),
-        new MusicPreset
-        {
-            Name = "经典",
-            ResponseMode = MusicResponseMode.BrightnessPulse,
-            LowColor = "#FFD2A1",
-            HighColor = "#FFFFFF",
-            Sensitivity = 1.0,
-            AttackMs = 100,
-            ReleaseMs = 650,
-            BaseBrightness = 20,
-            PeakBrightness = 75,
-            NoiseGate = 0.03,
-            BeatThreshold = 0.20,
-            PeakHoldMs = 120
+            NoiseGate = 0.09,
+            BeatThreshold = 0.16,
+            PeakHoldMs = 45,
+            EqEnabled = true,
+            EqLowHz = 55,
+            EqHighHz = 260
         }.Normalize(),
         new MusicPreset
         {
@@ -154,14 +188,17 @@ public sealed class MusicSettings
             ResponseMode = MusicResponseMode.LevelColor,
             LowColor = "#00E5FF",
             HighColor = "#FF00C8",
-            Sensitivity = 1.8,
+            Sensitivity = 1.45,
             AttackMs = 15,
-            ReleaseMs = 90,
+            ReleaseMs = 80,
             BaseBrightness = 5,
             PeakBrightness = 100,
-            NoiseGate = 0.05,
-            BeatThreshold = 0.08,
-            PeakHoldMs = 80
+            NoiseGate = 0.08,
+            BeatThreshold = 0.15,
+            PeakHoldMs = 35,
+            EqEnabled = true,
+            EqLowHz = 40,
+            EqHighHz = 220
         }.Normalize()
     ];
 }
@@ -200,6 +237,12 @@ public sealed class MusicPreset
 
     public int PeakHoldMs { get; set; } = 90;
 
+    public bool EqEnabled { get; set; } = true;
+
+    public int EqLowHz { get; set; } = 60;
+
+    public int EqHighHz { get; set; } = 180;
+
     public MusicPreset Normalize()
     {
         Name = string.IsNullOrWhiteSpace(Name) ? "" : Name.Trim();
@@ -219,6 +262,8 @@ public sealed class MusicPreset
         NoiseGate = Math.Clamp(NoiseGate, 0, 0.5);
         BeatThreshold = Math.Clamp(BeatThreshold, 0.02, 0.8);
         PeakHoldMs = Math.Clamp(PeakHoldMs, 0, 500);
+        EqLowHz = Math.Clamp(EqLowHz, 20, 1000);
+        EqHighHz = Math.Clamp(EqHighHz, EqLowHz + 10, 8000);
         return this;
     }
 }

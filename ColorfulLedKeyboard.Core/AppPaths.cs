@@ -9,6 +9,8 @@ public static class AppPaths
     public const string UpdateStateFileName = "update-check.json";
     public const string ForegroundAppStateFileName = "foreground-app.json";
     public const string TypingPulseStateFileName = "typing-pulse.json";
+    public const string NotificationFlashStateFileName = "notification-flash.json";
+    public const string SpotifyAlbumColorStateFileName = "spotify-album-color.json";
 
     public static string ProgramDataDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), ProgramDataFolderName);
@@ -20,4 +22,8 @@ public static class AppPaths
     public static string ForegroundAppStatePath => Path.Combine(ProgramDataDirectory, ForegroundAppStateFileName);
 
     public static string TypingPulseStatePath => Path.Combine(ProgramDataDirectory, TypingPulseStateFileName);
+
+    public static string NotificationFlashStatePath => Path.Combine(ProgramDataDirectory, NotificationFlashStateFileName);
+
+    public static string SpotifyAlbumColorStatePath => Path.Combine(ProgramDataDirectory, SpotifyAlbumColorStateFileName);
 }

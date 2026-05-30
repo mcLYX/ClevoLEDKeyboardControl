@@ -8,6 +8,7 @@ public class Worker : BackgroundService
     private readonly SettingsStore _settingsStore = new();
     private readonly DchuKeyboardDevice _device = new();
     private readonly SystemAudioLevelMeter _audioLevelMeter = new();
+    private readonly AudioBandLevelMeter _audioBandLevelMeter = new();
     private readonly ILogger<Worker> _logger;
     private FileSystemWatcher? _watcher;
     private volatile bool _settingsChanged = true;
@@ -59,6 +60,7 @@ public class Worker : BackgroundService
     {
         _watcher?.Dispose();
         _audioLevelMeter.Dispose();
+        _audioBandLevelMeter.Dispose();
         return base.StopAsync(cancellationToken);
     }
 
@@ -86,7 +88,8 @@ public class Worker : BackgroundService
                 }
             }
 
-            var color = ApplyTypingPulse(generator.Next(), settings);
+            var brightness = ApplyTypingPulseBrightness(settings.Brightness, settings);
+            var color = ApplyNotificationFlash(generator.Next(brightness), settings);
             if (color != lastColor)
             {
                 _device.SetAllZones(color);
@@ -95,10 +98,18 @@ public class Worker : BackgroundService
 
             if (settings.Effect.Type is EffectType.Static or EffectType.Off)
             {
-                if (settings.Effect.Type == EffectType.Static && settings.TypingPulse.Enabled)
+                if ((settings.Effect.Type == EffectType.Static && settings.TypingPulse.Enabled) ||
+                    settings.NotificationFlash.Enabled)
                 {
                     await Task.Delay(40, stoppingToken);
                     continue;
+                }
+
+                if (NeedsRuntimePolling(settings))
+                {
+                    await Task.Delay(1000, stoppingToken);
+                    _settingsChanged = true;
+                    return;
                 }
 
                 await WaitForSettingsChangeAsync(1000, stoppingToken);
@@ -132,15 +143,24 @@ public class Worker : BackgroundService
                 }
             }
 
-            var level = _audioLevelMeter.GetPeakLevel();
+            var level = music.EqEnabled
+                ? Math.Max(_audioBandLevelMeter.GetAdaptiveBeatLevel(music), _audioLevelMeter.GetPeakLevel() * 0.12f)
+                : _audioLevelMeter.GetPeakLevel();
             var envelope = controller.NextEnvelope(music, level);
             var musicBrightness = music.BaseBrightness +
                 (music.PeakBrightness - music.BaseBrightness) * Math.Pow(envelope, 0.65);
-            var brightness = ApplyTypingPulseBrightness((int)Math.Round(musicBrightness), settings);
-            var sourceColor = music.ResponseMode == MusicResponseMode.LevelColor
+            var brightness = (int)Math.Clamp(Math.Round(musicBrightness), music.BaseBrightness, music.PeakBrightness);
+            var responseMode = music.ResponseMode;
+            if (music.Spotify.AlbumColorEnabled && TryGetSpotifyAlbumColor(out var albumColor))
+            {
+                responseMode = MusicResponseMode.BrightnessPulse;
+                baseColor = albumColor;
+            }
+
+            var sourceColor = responseMode == MusicResponseMode.LevelColor
                 ? RgbColor.Lerp(lowColor, highColor, envelope)
                 : baseColor;
-            var color = sourceColor.Scale(brightness);
+            var color = ApplyNotificationFlash(sourceColor.Scale(brightness), settings);
 
             if (color != lastColor)
             {
@@ -162,15 +182,43 @@ public class Worker : BackgroundService
         return RgbColor.FromHex(settings.StaticColor);
     }
 
-    private static RgbColor ApplyTypingPulse(RgbColor color, KeyboardSettings settings)
+    private static bool TryGetSpotifyAlbumColor(out RgbColor color)
     {
-        var target = ApplyTypingPulseBrightness(settings.Brightness, settings);
-        if (target <= settings.Brightness)
+        color = RgbColor.FromHex("#FFFFFF");
+        var state = SpotifyAlbumColorState.Load();
+        if (state is null || DateTimeOffset.UtcNow - state.UpdatedUtc > TimeSpan.FromMinutes(10))
+        {
+            return false;
+        }
+
+        color = RgbColor.FromHex(state.Color);
+        return true;
+    }
+
+    private static RgbColor ApplyNotificationFlash(RgbColor color, KeyboardSettings settings)
+    {
+        var flash = settings.NotificationFlash.Normalize();
+        if (!flash.Enabled)
         {
             return color;
         }
 
-        return ScaleBrightnessRatio(color, settings.Brightness, target);
+        var state = NotificationFlashState.Load();
+        if (state is null)
+        {
+            return color;
+        }
+
+        var elapsedMs = (DateTimeOffset.UtcNow - state.TriggeredUtc).TotalMilliseconds;
+        var cycleMs = flash.PulseMs * 2;
+        var totalMs = cycleMs * flash.Pulses;
+        if (elapsedMs < 0 || elapsedMs > totalMs)
+        {
+            return color;
+        }
+
+        var phase = elapsedMs % cycleMs;
+        return phase < flash.PulseMs ? RgbColor.FromHex(flash.Color) : RgbColor.Black;
     }
 
     private static int ApplyTypingPulseBrightness(int currentBrightness, KeyboardSettings settings)
@@ -197,24 +245,10 @@ public class Worker : BackgroundService
         if (elapsedMs > pulse.HoldMs)
         {
             var progress = Math.Clamp((elapsedMs - pulse.HoldMs) / Math.Max(1, pulse.FadeMs), 0, 1);
-            pulseBrightness = (int)Math.Round(pulse.PeakBrightness - (pulse.PeakBrightness - pulse.BaseBrightness) * progress);
+            pulseBrightness = (int)Math.Round(pulse.PeakBrightness - (pulse.PeakBrightness - currentBrightness) * progress);
         }
 
         return Math.Max(currentBrightness, pulseBrightness);
-    }
-
-    private static RgbColor ScaleBrightnessRatio(RgbColor color, int fromBrightness, int toBrightness)
-    {
-        if (fromBrightness <= 0)
-        {
-            return color;
-        }
-
-        var ratio = Math.Clamp(toBrightness, 0, 100) / (double)Math.Clamp(fromBrightness, 1, 100);
-        return new RgbColor(
-            (byte)Math.Clamp(Math.Round(color.R * ratio), 0, 255),
-            (byte)Math.Clamp(Math.Round(color.G * ratio), 0, 255),
-            (byte)Math.Clamp(Math.Round(color.B * ratio), 0, 255));
     }
 
     private static KeyboardSettings BuildRuntimeSettings(KeyboardSettings settings)
@@ -231,6 +265,7 @@ public class Worker : BackgroundService
         var next = BuildRuntimeSettings(new SettingsStore().Load());
         return next.Enabled != current.Enabled ||
             next.Brightness != current.Brightness ||
+            !NotificationFlashEquals(next.NotificationFlash, current.NotificationFlash) ||
             next.Effect.Type != current.Effect.Type ||
             next.Effect.Color != current.Effect.Color ||
             next.Effect.Step != current.Effect.Step ||
@@ -245,6 +280,22 @@ public class Worker : BackgroundService
                 pair.First.HoldMs != pair.Second.HoldMs ||
                 pair.First.TransitionMs != pair.Second.TransitionMs ||
                 pair.First.Breathing != pair.Second.Breathing);
+    }
+
+    private static bool NeedsRuntimePolling(KeyboardSettings settings)
+    {
+        return settings.Schedule.Enabled ||
+            settings.IdleDim.Enabled ||
+            settings.AppProfiles.Enabled;
+    }
+
+    private static bool NotificationFlashEquals(NotificationFlashSettings left, NotificationFlashSettings right)
+    {
+        return left.Enabled == right.Enabled &&
+            left.Color == right.Color &&
+            left.Pulses == right.Pulses &&
+            left.PulseMs == right.PulseMs &&
+            left.CooldownSeconds == right.CooldownSeconds;
     }
 
     private static bool MusicEquals(MusicSettings left, MusicSettings right)
@@ -263,6 +314,13 @@ public class Worker : BackgroundService
             Math.Abs(left.NoiseGate - right.NoiseGate) < 0.001 &&
             Math.Abs(left.BeatThreshold - right.BeatThreshold) < 0.001 &&
             left.PeakHoldMs == right.PeakHoldMs &&
+            left.EqEnabled == right.EqEnabled &&
+            left.EqLowHz == right.EqLowHz &&
+            left.EqHighHz == right.EqHighHz &&
+            left.Spotify.AlbumColorEnabled == right.Spotify.AlbumColorEnabled &&
+            left.Spotify.AlbumColorSource == right.Spotify.AlbumColorSource &&
+            left.Spotify.ClientId == right.Spotify.ClientId &&
+            left.Spotify.RefreshToken == right.Spotify.RefreshToken &&
             left.CustomPresets.Count == right.CustomPresets.Count &&
             left.CustomPresets.Zip(right.CustomPresets).All(pair => MusicPresetEquals(pair.First, pair.Second));
     }
@@ -281,7 +339,10 @@ public class Worker : BackgroundService
             left.IntervalMs == right.IntervalMs &&
             Math.Abs(left.NoiseGate - right.NoiseGate) < 0.001 &&
             Math.Abs(left.BeatThreshold - right.BeatThreshold) < 0.001 &&
-            left.PeakHoldMs == right.PeakHoldMs;
+            left.PeakHoldMs == right.PeakHoldMs &&
+            left.EqEnabled == right.EqEnabled &&
+            left.EqLowHz == right.EqLowHz &&
+            left.EqHighHz == right.EqHighHz;
     }
 
     private async Task FlashStartupAsync(CancellationToken stoppingToken)
@@ -317,7 +378,6 @@ public class Worker : BackgroundService
         }
 
         settings.Enabled = true;
-        settings.Brightness = rule.Brightness;
         settings.Effect = rule.Effect;
     }
 
@@ -347,7 +407,13 @@ public class Worker : BackgroundService
         }
 
         settings.Enabled = true;
-        settings.Brightness = rule.Brightness;
+        if (rule.TargetEffect == EffectType.Music)
+        {
+            settings.Effect.Type = EffectType.Music;
+            settings.Effect.Color = rule.AutoColorEnabled ? rule.IconColor : rule.ManualColor;
+            return;
+        }
+
         settings.Effect = rule.BuildEffect();
     }
 
@@ -389,7 +455,9 @@ public class Worker : BackgroundService
 
     private void MarkSettingsChanged(string? fileName)
     {
-        if (string.Equals(fileName, AppPaths.SettingsFileName, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(fileName, AppPaths.SettingsFileName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileName, AppPaths.NotificationFlashStateFileName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileName, AppPaths.ForegroundAppStateFileName, StringComparison.OrdinalIgnoreCase))
         {
             _settingsChanged = true;
         }
