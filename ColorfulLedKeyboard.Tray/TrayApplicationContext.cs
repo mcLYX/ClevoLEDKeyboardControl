@@ -29,7 +29,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         _notifyIcon = new NotifyIcon
         {
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
-            Text = "ClevoRGBControl",
+            Text = "ClevoLEDKeyboardControl",
             Visible = true,
             ContextMenuStrip = BuildMenu()
         };
@@ -379,7 +379,7 @@ public sealed class TrayApplicationContext : ApplicationContext
 
             MessageBox.Show(
                 $"当前已是最新版本。\n\n当前版本：{result.CurrentVersion.ToString(3)}",
-                "ClevoRGBControl",
+                "ClevoLEDKeyboardControl",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
@@ -387,7 +387,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             MessageBox.Show(
                 $"检查更新失败：{ex.Message}",
-                "ClevoRGBControl",
+                "ClevoLEDKeyboardControl",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -399,7 +399,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         if (passive)
         {
             _balloonReleaseUrl = result.ReleaseUrl;
-            _notifyIcon.BalloonTipTitle = "ClevoRGBControl 有新版本";
+            _notifyIcon.BalloonTipTitle = "ClevoLEDKeyboardControl 有新版本";
             _notifyIcon.BalloonTipText = $"最新版本：{latest}。点击这里打开下载页面。";
             _notifyIcon.ShowBalloonTip(8000);
             return;
@@ -407,7 +407,7 @@ public sealed class TrayApplicationContext : ApplicationContext
 
         var choice = MessageBox.Show(
             $"发现新版本：{latest}\n当前版本：{result.CurrentVersion.ToString(3)}\n\n是否打开下载页面？",
-            "ClevoRGBControl",
+            "ClevoLEDKeyboardControl",
             MessageBoxButtons.YesNo,
             MessageBoxIcon.Information);
 
@@ -456,7 +456,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             MessageBox.Show(
                 $"无法保存配置：{ex.Message}",
-                "ClevoRGBControl",
+                "ClevoLEDKeyboardControl",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
             return false;
@@ -505,7 +505,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             MessageBox.Show(
                 $"无法重启服务：{ex.Message}",
-                "ClevoRGBControl",
+                "ClevoLEDKeyboardControl",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -515,7 +515,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     {
         try
         {
-            var command = "Restart-Service -Name ClevoRGBControlService -Force";
+            var command = "Restart-Service -Name ClevoLEDKeyboardControlService -Force";
             Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -Command \"{command}\"")
             {
                 UseShellExecute = true,
@@ -527,7 +527,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             MessageBox.Show(
                 $"需要管理员权限重启服务：{ex.Message}",
-                "ClevoRGBControl",
+                "ClevoLEDKeyboardControl",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -546,7 +546,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             MessageBox.Show(
                 $"找不到实验性工具：{exe}",
-                "ClevoRGBControl",
+                "ClevoLEDKeyboardControl",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
             return;
@@ -564,7 +564,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             MessageBox.Show(
                 $"无法启动分区控制测试：{ex.Message}",
-                "ClevoRGBControl",
+                "ClevoLEDKeyboardControl",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -574,7 +574,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     {
         MessageBox.Show(
             $"无法保存配置，请重新安装新版程序以修复权限，或确认当前用户可写入：{AppPaths.SettingsPath}",
-            "ClevoRGBControl",
+            "ClevoLEDKeyboardControl",
             MessageBoxButtons.OK,
             MessageBoxIcon.Warning);
     }

@@ -9,8 +9,8 @@ namespace ColorfulLedKeyboard.Tray;
 
 public sealed class UpdateChecker
 {
-    public const string ReleasesUrl = "https://github.com/xuha233/ClevoRGBControl/releases";
-    private const string LatestReleaseApiUrl = "https://api.github.com/repos/xuha233/ClevoRGBControl/releases/latest";
+    public const string ReleasesUrl = "https://github.com/silent-ram/ClevoLEDKeyboardControl/releases";
+    private const string LatestReleaseApiUrl = "https://api.github.com/repos/silent-ram/ClevoLEDKeyboardControl/releases/latest";
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public Version CurrentVersion { get; } = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
@@ -23,7 +23,7 @@ public sealed class UpdateChecker
         }
 
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ClevoRGBControl", CurrentVersion.ToString(3)));
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ClevoLEDKeyboardControl", CurrentVersion.ToString(3)));
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
 
         using var response = await client.GetAsync(LatestReleaseApiUrl, cancellationToken);

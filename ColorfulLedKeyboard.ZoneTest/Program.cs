@@ -1,6 +1,6 @@
 using ColorfulLedKeyboard.Core;
 
-Console.WriteLine("ClevoRGBControl zone test");
+Console.WriteLine("ClevoLEDKeyboardControl zone test");
 Console.WriteLine("This demo writes zone 1/2/3 independently: red, green, blue.");
 Console.WriteLine("Run it next to InsydeDCHU.dll, or copy InsydeDCHU.dll into this output folder.");
 Console.WriteLine();

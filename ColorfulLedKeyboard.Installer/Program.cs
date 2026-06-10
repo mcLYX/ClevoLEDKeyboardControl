@@ -9,14 +9,16 @@ namespace ColorfulLedKeyboard.Installer;
 
 internal static class Program
 {
-    private const string AppName = "ClevoRGBControl";
-    private const string ServiceName = "ClevoRGBControlService";
+    private const string AppName = "ClevoLEDKeyboardControl";
+    private const string ServiceName = "ClevoLEDKeyboardControlService";
     private const string LegacyServiceName = "ColorfulLedKeyboardService";
-    private const string DisplayName = "ClevoRGBControl Service";
-    private const string InstallFolderName = "ClevoRGBControl";
+    private const string LegacyServiceNameClevoRgb = "ClevoRGBControlService";
+    private const string DisplayName = "ClevoLEDKeyboardControl Service";
+    private const string InstallFolderName = "ClevoLEDKeyboardControl";
     private const string PayloadResourceName = "payload.zip";
-    private const string UninstallKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\ClevoRGBControl";
+    private const string UninstallKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\ClevoLEDKeyboardControl";
     private const string LegacyUninstallKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\ColorfulLedKeyboard";
+    private const string LegacyUninstallKeyPathClevoRgb = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\ClevoRGBControl";
     private const string DriverDllName = "InsydeDCHU.dll";
 
     private static readonly string InstallDirectory = Path.Combine(
@@ -34,7 +36,7 @@ internal static class Program
         DriverDllName);
     private static readonly string ProgramDataDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "ClevoRGBControl");
+        "ClevoLEDKeyboardControl");
 
     [STAThread]
     private static int Main(string[] args)
@@ -90,6 +92,7 @@ internal static class Program
     {
         StopAndDeleteServiceIfPresent(ServiceName);
         StopAndDeleteServiceIfPresent(LegacyServiceName);
+        StopAndDeleteServiceIfPresent(LegacyServiceNameClevoRgb);
         Directory.CreateDirectory(InstallDirectory);
         ExtractPayload();
         EnsureProgramDataPermissions();
@@ -154,6 +157,7 @@ internal static class Program
     {
         StopAndDeleteServiceIfPresent(ServiceName);
         StopAndDeleteServiceIfPresent(LegacyServiceName);
+        StopAndDeleteServiceIfPresent(LegacyServiceNameClevoRgb);
         RemoveTrayStartup();
         UnregisterUninstaller();
         KillTray();
@@ -182,7 +186,7 @@ internal static class Program
 
     private static void ScheduleInstallDirectoryRemoval()
     {
-        var scriptPath = Path.Combine(Path.GetTempPath(), $"ClevoRGBControl-uninstall-{Guid.NewGuid():N}.cmd");
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"ClevoLEDKeyboardControl-uninstall-{Guid.NewGuid():N}.cmd");
         File.WriteAllText(
             scriptPath,
             $"""
@@ -240,7 +244,7 @@ internal static class Program
 
     private static void RegisterUninstaller()
     {
-        var setupPath = Path.Combine(InstallDirectory, "ClevoRGBControlSetup.exe");
+        var setupPath = Path.Combine(InstallDirectory, "ClevoLEDKeyboardControlSetup.exe");
         File.Copy(Environment.ProcessPath!, setupPath, overwrite: true);
 
         using var key = Registry.LocalMachine.CreateSubKey(UninstallKeyPath, writable: true)
@@ -248,7 +252,7 @@ internal static class Program
 
         key.SetValue("DisplayName", AppName);
         key.SetValue("DisplayVersion", Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.1");
-        key.SetValue("Publisher", "ClevoRGBControl");
+        key.SetValue("Publisher", "ClevoLEDKeyboardControl");
         key.SetValue("InstallLocation", InstallDirectory);
         key.SetValue("DisplayIcon", setupPath);
         key.SetValue("UninstallString", $"\"{setupPath}\" /uninstall");
@@ -262,6 +266,7 @@ internal static class Program
     {
         Registry.LocalMachine.DeleteSubKeyTree(UninstallKeyPath, throwOnMissingSubKey: false);
         Registry.LocalMachine.DeleteSubKeyTree(LegacyUninstallKeyPath, throwOnMissingSubKey: false);
+        Registry.LocalMachine.DeleteSubKeyTree(LegacyUninstallKeyPathClevoRgb, throwOnMissingSubKey: false);
     }
 
     private static void RemoveTrayStartup()
@@ -292,7 +297,9 @@ internal static class Program
         return Directory.Exists(InstallDirectory) ||
             Registry.LocalMachine.OpenSubKey(UninstallKeyPath) is not null ||
             Run("sc.exe", $"query {ServiceName}", allowFailure: true).ExitCode == 0 ||
-            Run("sc.exe", $"query {LegacyServiceName}", allowFailure: true).ExitCode == 0;
+            Run("sc.exe", $"query {LegacyServiceName}", allowFailure: true).ExitCode == 0 ||
+            Run("sc.exe", $"query {LegacyServiceNameClevoRgb}", allowFailure: true).ExitCode == 0 ||
+            Registry.LocalMachine.OpenSubKey(LegacyUninstallKeyPathClevoRgb) is not null;
     }
 
     private static int GetDirectorySizeInKb(string path)

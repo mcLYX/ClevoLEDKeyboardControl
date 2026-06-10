@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$serviceName = "ClevoRGBControlService"
+$serviceName = "ClevoLEDKeyboardControlService"
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {

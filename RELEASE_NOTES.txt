@@ -1,4 +1,4 @@
-ClevoRGBControl v1.2.0
+ClevoLEDKeyboardControl v1.2.0
 
 新增功能：
 - 音乐模式加入自适应鼓点检测，响应更接近鼓点和节奏。
@@ -20,7 +20,7 @@ ClevoRGBControl v1.2.0
 - 优化应用场景配置的颜色和亮度管理逻辑。
 
 安装：
-- 下载 ClevoRGBControlSetup.exe。
+- 下载 ClevoLEDKeyboardControlSetup.exe。
 - 以管理员身份运行安装器。
 - 安装器会优先从 C:\Program Files (x86)\ControlCenter 复制 InsydeDCHU.dll，找不到时使用内置备用 DLL。
 

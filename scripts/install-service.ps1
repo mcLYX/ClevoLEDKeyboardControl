@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$serviceName = "ClevoRGBControlService"
-$displayName = "ClevoRGBControl Service"
+$serviceName = "ClevoLEDKeyboardControlService"
+$displayName = "ClevoLEDKeyboardControl Service"
 $root = Split-Path -Parent $PSScriptRoot
 $serviceExe = Join-Path $root "publish\Service\ColorfulLedKeyboard.Service.exe"
 

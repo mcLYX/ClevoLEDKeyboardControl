@@ -81,7 +81,7 @@ public sealed class SettingsForm : Form
     public SettingsForm(SettingsStore settingsStore)
     {
         _settingsStore = settingsStore;
-        Text = "ClevoRGBControl 设置";
+        Text = "ClevoLEDKeyboardControl 设置";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(1040, 720);
         ClientSize = new Size(1080, 780);
@@ -358,7 +358,7 @@ public sealed class SettingsForm : Form
         var reset = new Button { Text = "恢复默认设置", Width = 120 };
         reset.Click += (_, _) =>
         {
-            if (MessageBox.Show("确定恢复默认设置？", "ClevoRGBControl", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            if (MessageBox.Show("确定恢复默认设置？", "ClevoLEDKeyboardControl", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {
                 return;
             }
@@ -517,11 +517,11 @@ public sealed class SettingsForm : Form
             settings.Brightness = _brightness.Enabled ? _brightness.Value : settings.Brightness;
             _settingsStore.Save(settings);
             _effectChangedByUser = false;
-            Text = "ClevoRGBControl 设置 - 已保存";
+            Text = "ClevoLEDKeyboardControl 设置 - 已保存";
         }
         catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show($"无法保存设置：{ex.Message}", "ClevoRGBControl", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show($"无法保存设置：{ex.Message}", "ClevoLEDKeyboardControl", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -786,13 +786,13 @@ public sealed class SettingsForm : Form
         var name = _musicPresetName.Text.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
-            MessageBox.Show("请先输入自定义预设名称。", "ClevoRGBControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("请先输入自定义预设名称。", "ClevoLEDKeyboardControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         if (IsBuiltInMusicPreset(name))
         {
-            MessageBox.Show("自定义预设不能使用内置预设名称。", "ClevoRGBControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("自定义预设不能使用内置预设名称。", "ClevoLEDKeyboardControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -806,7 +806,7 @@ public sealed class SettingsForm : Form
         {
             if (_musicCustomPresets.Count >= 8)
             {
-                MessageBox.Show("最多保存 8 个自定义音乐预设。", "ClevoRGBControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("最多保存 8 个自定义音乐预设。", "ClevoLEDKeyboardControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -821,7 +821,7 @@ public sealed class SettingsForm : Form
         var name = SelectedMusicPresetName();
         if (IsBuiltInMusicPreset(name))
         {
-            MessageBox.Show("内置预设不能删除。", "ClevoRGBControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("内置预设不能删除。", "ClevoLEDKeyboardControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -994,13 +994,13 @@ public sealed class SettingsForm : Form
             RefreshMusicPresetList(AlbumColorPresetName);
             _spotifyAlbumColorEnabled.Checked = true;
             _albumColorSource.SelectedIndex = AlbumColorSourceToIndex(AlbumColorSource.SpotifyOAuth);
-            MessageBox.Show("Spotify 已连接。", "ClevoRGBControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Spotify 已连接。", "ClevoLEDKeyboardControl", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex) when (ex is InvalidOperationException or HttpListenerException or HttpRequestException or TaskCanceledException)
         {
             MessageBox.Show(
                 $"Spotify 授权失败：{ex.Message}\n\n请确认 Spotify Developer Dashboard 已添加回调地址：\n{SpotifyOAuthClient.RedirectUri}",
-                "ClevoRGBControl",
+                "ClevoLEDKeyboardControl",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -1063,7 +1063,7 @@ public sealed class SettingsForm : Form
         var serviceDll = Path.Combine(AppContext.BaseDirectory, "InsydeDCHU.dll");
         var installedServiceDll = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            "ClevoRGBControl",
+            "ClevoLEDKeyboardControl",
             "Service",
             "InsydeDCHU.dll");
         var controlCenterDll = Path.Combine(

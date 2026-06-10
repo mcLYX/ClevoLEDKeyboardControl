@@ -2,9 +2,9 @@ namespace ColorfulLedKeyboard.Core;
 
 public static class AppPaths
 {
-    public const string ServiceName = "ClevoRGBControlService";
-    public const string DisplayName = "ClevoRGBControl Service";
-    public const string ProgramDataFolderName = "ClevoRGBControl";
+    public const string ServiceName = "ClevoLEDKeyboardControlService";
+    public const string DisplayName = "ClevoLEDKeyboardControl Service";
+    public const string ProgramDataFolderName = "ClevoLEDKeyboardControl";
     public const string SettingsFileName = "settings.json";
     public const string UpdateStateFileName = "update-check.json";
     public const string ForegroundAppStateFileName = "foreground-app.json";

@@ -4,12 +4,12 @@ namespace ColorfulLedKeyboard.Tray;
 
 public sealed class AboutForm : Form
 {
-    private const string RepositoryUrl = "https://github.com/xuha233/ClevoRGBControl";
+    private const string RepositoryUrl = "https://github.com/silent-ram/ClevoLEDKeyboardControl";
     private const string BilibiliUrl = "https://space.bilibili.com/498047812";
 
     public AboutForm()
     {
-        Text = "关于 ClevoRGBControl";
+        Text = "关于 ClevoLEDKeyboardControl";
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -23,7 +23,7 @@ public sealed class AboutForm : Form
     {
         var title = new Label
         {
-            Text = "ClevoRGBControl",
+            Text = "ClevoLEDKeyboardControl",
             Font = new Font(SystemFonts.MessageBoxFont ?? Control.DefaultFont, FontStyle.Bold),
             Location = new Point(24, 22),
             Size = new Size(360, 28)

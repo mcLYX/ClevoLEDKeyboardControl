@@ -59,10 +59,10 @@ dotnet publish (Join-Path $root "ColorfulLedKeyboard.Installer\ColorfulLedKeyboa
     -p:EnableCompressionInSingleFile=true `
     -o $installerPublish
 
-Copy-Item -LiteralPath (Join-Path $installerPublish "ClevoRGBControlSetup.exe") -Destination (Join-Path $publishRoot "ClevoRGBControlSetup.exe") -Force
+Copy-Item -LiteralPath (Join-Path $installerPublish "ClevoLEDKeyboardControlSetup.exe") -Destination (Join-Path $publishRoot "ClevoLEDKeyboardControlSetup.exe") -Force
 
 Write-Host "Published service to $servicePublish"
 Write-Host "Published tray app to $trayPublish"
 Write-Host "Published experimental tools to $experimentalPublish"
-Write-Host "Published setup executable to $(Join-Path $publishRoot "ClevoRGBControlSetup.exe")"
+Write-Host "Published setup executable to $(Join-Path $publishRoot "ClevoLEDKeyboardControlSetup.exe")"
 Write-Host "Setup will try to copy InsydeDCHU.dll from C:\Program Files (x86)\ControlCenter first, then use bundled fallback driver if needed."

@@ -19,3 +19,6 @@ TestResults/
 *.bak
 *.old
 ColorfulLedKeyboard.Installer/Payload/payload.zip
+
+# Vendor driver (not redistributable, fetched at install time from OEM Control Center)
+assets/driver/*.dll

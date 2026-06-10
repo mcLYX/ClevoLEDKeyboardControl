@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AssemblyName>ClevoRGBControlSetup</AssemblyName>
+    <AssemblyName>ClevoLEDKeyboardControlSetup</AssemblyName>
     <RootNamespace>ColorfulLedKeyboard.Installer</RootNamespace>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>..\assets\app.ico</ApplicationIcon>
