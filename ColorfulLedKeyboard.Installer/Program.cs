@@ -30,10 +30,6 @@ internal static class Program
     private static readonly string ExperimentalDirectory = Path.Combine(InstallDirectory, "Experimental");
     private static readonly string ServiceExe = Path.Combine(ServiceDirectory, "ColorfulLedKeyboard.Service.exe");
     private static readonly string TrayExe = Path.Combine(TrayDirectory, "ColorfulLedKeyboard.Tray.exe");
-    private static readonly string ControlCenterDriverPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-        "ControlCenter",
-        DriverDllName);
     private static readonly string ProgramDataDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
         "ClevoLEDKeyboardControl");
@@ -115,21 +111,70 @@ internal static class Program
     private static bool TryInstallDriverDll()
     {
         var serviceDestination = Path.Combine(ServiceDirectory, DriverDllName);
-        if (File.Exists(ControlCenterDriverPath))
+        var sourcePath = FindDriverDll(serviceDestination);
+        if (sourcePath is null)
         {
-            Directory.CreateDirectory(ServiceDirectory);
-            File.Copy(ControlCenterDriverPath, serviceDestination, overwrite: true);
-            CopyDriverToExperimental(serviceDestination);
-            return true;
+            return false;
         }
 
-        if (File.Exists(serviceDestination))
+        Directory.CreateDirectory(ServiceDirectory);
+        if (!string.Equals(
+            Path.GetFullPath(sourcePath),
+            Path.GetFullPath(serviceDestination),
+            StringComparison.OrdinalIgnoreCase))
         {
-            CopyDriverToExperimental(serviceDestination);
-            return true;
+            File.Copy(sourcePath, serviceDestination, overwrite: true);
         }
 
-        return false;
+        CopyDriverToExperimental(serviceDestination);
+        return true;
+    }
+
+    private static string? FindDriverDll(string serviceDestination)
+    {
+        foreach (var path in GetDriverSearchPaths(serviceDestination).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> GetDriverSearchPaths(string serviceDestination)
+    {
+        yield return serviceDestination;
+
+        var setupDirectory = Path.GetDirectoryName(Environment.ProcessPath);
+        if (!string.IsNullOrWhiteSpace(setupDirectory))
+        {
+            yield return Path.Combine(setupDirectory, DriverDllName);
+        }
+
+        var oldInstallRoot = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        foreach (var oldFolder in new[] { "ClevoRGBControl", "ColorfulLedKeyboard" })
+        {
+            yield return Path.Combine(oldInstallRoot, oldFolder, "Service", DriverDllName);
+        }
+
+        foreach (var root in new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)
+        })
+        {
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                continue;
+            }
+
+            foreach (var controlCenterFolder in new[] { "ControlCenter", "Control Center", "ControlCenter3", "Control Center 3.0" })
+            {
+                yield return Path.Combine(root, controlCenterFolder, DriverDllName);
+            }
+        }
     }
 
     private static void CopyDriverToExperimental(string sourcePath)
@@ -150,7 +195,7 @@ internal static class Program
             return $"{AppName} has been installed.\n\n{DriverDllName} was installed automatically.\n\nThe tray app will start automatically for the current user.";
         }
 
-        return $"{AppName} has been installed.\n\n{DriverDllName} was not found in:\n{Path.GetDirectoryName(ControlCenterDriverPath)}\n\nPlease copy {DriverDllName} to:\n{ServiceDirectory}\n\nThe tray app will start automatically for the current user.";
+        return $"{AppName} has been installed.\n\n{DriverDllName} was not found automatically. Install the OEM Control Center, then run this installer again to repair the installation.\n\nThe tray app will start automatically for the current user.";
     }
 
     private static void Uninstall()

@@ -10,7 +10,37 @@ $trayPublish = Join-Path $publishRoot "Tray"
 $experimentalPublish = Join-Path $publishRoot "Experimental"
 $installerPayload = Join-Path $root "ColorfulLedKeyboard.Installer\Payload\payload.zip"
 $installerPublish = Join-Path $publishRoot "Setup"
-$bundledDriver = Join-Path $root "assets\driver\InsydeDCHU.dll"
+$driverDllName = "InsydeDCHU.dll"
+
+function Get-DriverCandidatePaths {
+    if (-not [string]::IsNullOrWhiteSpace($env:CLEVO_DRIVER_DLL)) {
+        $env:CLEVO_DRIVER_DLL
+    }
+
+    Join-Path $root "assets\driver\$driverDllName"
+
+    $programRoots = @(
+        ${env:ProgramFiles(x86)},
+        $env:ProgramFiles,
+        $env:ProgramW6432
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+
+    foreach ($programRoot in $programRoots) {
+        foreach ($folder in @("ControlCenter", "Control Center", "ControlCenter3", "Control Center 3.0")) {
+            Join-Path (Join-Path $programRoot $folder) $driverDllName
+        }
+    }
+}
+
+function Get-FirstExistingDriver {
+    foreach ($candidate in Get-DriverCandidatePaths) {
+        if (Test-Path -LiteralPath $candidate) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    return $null
+}
 
 New-Item -ItemType Directory -Force -Path $servicePublish, $trayPublish, $experimentalPublish, $installerPublish | Out-Null
 
@@ -45,9 +75,15 @@ New-Item -ItemType Directory -Force -Path (Join-Path $payloadStage "Service"), (
 Copy-Item -Path (Join-Path $servicePublish "*") -Destination (Join-Path $payloadStage "Service") -Recurse -Force
 Copy-Item -Path (Join-Path $trayPublish "*") -Destination (Join-Path $payloadStage "Tray") -Recurse -Force
 Copy-Item -Path (Join-Path $experimentalPublish "*") -Destination (Join-Path $payloadStage "Experimental") -Recurse -Force
-if (Test-Path $bundledDriver) {
-    Copy-Item -LiteralPath $bundledDriver -Destination (Join-Path $payloadStage "Service\InsydeDCHU.dll") -Force
-    Copy-Item -LiteralPath $bundledDriver -Destination (Join-Path $payloadStage "Experimental\InsydeDCHU.dll") -Force
+
+$driverSource = Get-FirstExistingDriver
+if ($driverSource) {
+    Copy-Item -LiteralPath $driverSource -Destination (Join-Path $payloadStage "Service\$driverDllName") -Force
+    Copy-Item -LiteralPath $driverSource -Destination (Join-Path $payloadStage "Experimental\$driverDllName") -Force
+    Write-Host "Bundled $driverDllName from $driverSource"
+}
+else {
+    Write-Warning "$driverDllName was not found. The setup executable will still be built; it will try to copy the driver from the user's OEM Control Center during installation."
 }
 Compress-Archive -Path (Join-Path $payloadStage "*") -DestinationPath $installerPayload -Force
 
@@ -65,4 +101,4 @@ Write-Host "Published service to $servicePublish"
 Write-Host "Published tray app to $trayPublish"
 Write-Host "Published experimental tools to $experimentalPublish"
 Write-Host "Published setup executable to $(Join-Path $publishRoot "ClevoLEDKeyboardControlSetup.exe")"
-Write-Host "Setup will try to copy InsydeDCHU.dll from C:\Program Files (x86)\ControlCenter first, then use bundled fallback driver if needed."
+Write-Host "Setup will automatically search for $driverDllName in the setup payload, next to the setup executable, old install directories, and OEM Control Center folders."
