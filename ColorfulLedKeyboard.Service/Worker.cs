@@ -79,7 +79,7 @@ public class Worker : BackgroundService
 
     private async Task RunEffectAsync(KeyboardSettings settings, CancellationToken stoppingToken)
     {
-        if (settings.Effect.Type == EffectType.Music)
+        if (settings.OperatingMode == OperatingMode.Music)
         {
             await RunMusicAsync(settings, stoppingToken);
             return;
@@ -245,6 +245,7 @@ public class Worker : BackgroundService
     {
         var next = BuildRuntimeSettings(new SettingsStore().Load());
         return next.Enabled != current.Enabled ||
+            next.OperatingMode != current.OperatingMode ||
             next.Brightness != current.Brightness ||
             !NotificationFlashEquals(next.NotificationFlash, current.NotificationFlash) ||
             next.Effect.Type != current.Effect.Type ||
@@ -391,13 +392,8 @@ public class Worker : BackgroundService
         }
 
         settings.Enabled = true;
-        if (rule.TargetEffect == EffectType.Music)
-        {
-            settings.Effect.Type = EffectType.Music;
-            settings.Effect.Color = rule.AutoColorEnabled ? rule.IconColor : rule.ManualColor;
-            return;
-        }
-
+        // AppProfile 不再支持 TargetEffect=Music（已从 EffectType 中移除，规则只能切到灯效模式下的 Static/Breathing）。
+        // 用户希望"前台某进程时切到音乐"需要在未来的 AppProfile 改进中重新设计。
         settings.Effect = rule.BuildEffect();
     }
 
