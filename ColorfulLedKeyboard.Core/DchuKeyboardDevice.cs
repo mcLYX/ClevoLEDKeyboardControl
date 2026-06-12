@@ -23,9 +23,7 @@ public sealed class DchuKeyboardDevice
     /// </summary>
     public void SetColor(RgbColor color)
     {
-        var packed = Pack9BitColor(color);
-        var args = packed & 0xFFF; // bit 11..0
-        var payload = BitConverter.GetBytes(args);
+        var payload = BitConverter.GetBytes(Pack9BitColor(color));
         SetDCHU_Data(SetDchuStaticColorCommand, payload, 4);
     }
 
