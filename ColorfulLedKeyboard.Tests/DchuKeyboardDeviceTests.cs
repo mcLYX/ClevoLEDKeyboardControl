@@ -5,54 +5,61 @@ namespace ColorfulLedKeyboard.Tests;
 public sealed class DchuKeyboardDeviceTests
 {
     [Fact]
-    public void Pack9BitColor_Black_ReturnsZero()
+    public void BuildSequenceSlotArgs_Slot0_Black()
     {
-        var packed = DchuKeyboardDevice.Pack9BitColor(new RgbColor(0, 0, 0));
-        Assert.Equal(0x000, packed);
+        // Local7=0xF, Local4=0, color=(0,0,0)
+        // commandByte=0xF0, encodedColor=0 → args = 0xF0000000
+        var args = DchuKeyboardDevice.BuildSequenceSlotArgs(new RgbColor(0, 0, 0), 0);
+        Assert.Equal(0xF0000000, (uint)args);
     }
 
     [Fact]
-    public void Pack9BitColor_White_ReturnsAllNineBitsSet()
+    public void BuildSequenceSlotArgs_Slot2_White()
     {
-        var packed = DchuKeyboardDevice.Pack9BitColor(new RgbColor(0xFF, 0xFF, 0xFF));
-        Assert.Equal(0x1FF, packed);
+        // Local7=0xF, Local4=2, color=(255,255,255)
+        // commandByte=0xF2, encodedColor = (0xFF<<16)|(0xFF<<8)|0xFF = 0xFFFFFF
+        // args = 0xF2FFFFFF
+        var args = DchuKeyboardDevice.BuildSequenceSlotArgs(new RgbColor(255, 255, 255), 2);
+        Assert.Equal(0xF2FFFFFF, (uint)args);
     }
 
     [Fact]
-    public void Pack9BitColor_PureRed_PutsTopThreeBitsInLowField()
+    public void BuildSequenceSlotArgs_Slot1_PureRed()
     {
-        var packed = DchuKeyboardDevice.Pack9BitColor(new RgbColor(0xFF, 0, 0));
-        Assert.Equal(0x007, packed);
+        // commandByte=0xF1, color=(255,0,0)
+        // encodedColor = (0<<16)|(255<<8)|0 = 0x00FF00
+        // args = 0xF100FF00
+        var args = DchuKeyboardDevice.BuildSequenceSlotArgs(new RgbColor(255, 0, 0), 1);
+        Assert.Equal(0xF100FF00, (uint)args);
     }
 
     [Fact]
-    public void Pack9BitColor_PureGreen_PutsTopThreeBitsInMidField()
+    public void BuildSequenceSlotArgs_Slot0_PureGreen()
     {
-        var packed = DchuKeyboardDevice.Pack9BitColor(new RgbColor(0, 0xFF, 0));
-        Assert.Equal(0x038, packed);
+        // commandByte=0xF0, color=(0,255,0)
+        // encodedColor = (0<<16)|(0<<8)|255 = 0x0000FF
+        // args = 0xF00000FF
+        var args = DchuKeyboardDevice.BuildSequenceSlotArgs(new RgbColor(0, 255, 0), 0);
+        Assert.Equal(0xF00000FF, (uint)args);
     }
 
     [Fact]
-    public void Pack9BitColor_PureBlue_PutsTopThreeBitsInHighField()
+    public void BuildSequenceSlotArgs_Slot2_PureBlue()
     {
-        var packed = DchuKeyboardDevice.Pack9BitColor(new RgbColor(0, 0, 0xFF));
-        Assert.Equal(0x1C0, packed);
+        // commandByte=0xF2, color=(0,0,255)
+        // encodedColor = (255<<16)|(0<<8)|0 = 0xFF0000
+        // args = 0xF2FF0000
+        var args = DchuKeyboardDevice.BuildSequenceSlotArgs(new RgbColor(0, 0, 255), 2);
+        Assert.Equal(0xF2FF0000, (uint)args);
     }
 
     [Fact]
-    public void Pack9BitColor_LowFiveBitsPerChannelQuantizeToZero()
+    public void BuildSequenceSlotArgs_MixedColor()
     {
-        // 每通道只设置低 5 bit (0x1F)，最高 3 bit 都是 0，应该全部量化掉
-        var packed = DchuKeyboardDevice.Pack9BitColor(new RgbColor(0x1F, 0x1F, 0x1F));
-        Assert.Equal(0x000, packed);
-    }
-
-    [Fact]
-    public void Pack9BitColor_PreservesTopThreeBitsPerChannel()
-    {
-        // R=0xE0 (top3=0b111=7), G=0xC0 (top3=0b110=6), B=0xA0 (top3=0b101=5)
-        // 期望: 7 | (6<<3) | (5<<6) = 0x07 | 0x30 | 0x140 = 0x177
-        var packed = DchuKeyboardDevice.Pack9BitColor(new RgbColor(0xE0, 0xC0, 0xA0));
-        Assert.Equal(0x177, packed);
+        // commandByte=0xF1, color=(0x12, 0x34, 0x56)
+        // encodedColor = (0x56<<16)|(0x12<<8)|0x34 = 0x561234
+        // args = 0xF1561234
+        var args = DchuKeyboardDevice.BuildSequenceSlotArgs(new RgbColor(0x12, 0x34, 0x56), 1);
+        Assert.Equal(0xF1561234, (uint)args);
     }
 }
