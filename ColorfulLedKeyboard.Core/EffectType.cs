@@ -7,5 +7,7 @@ public enum EffectType
     Breathing = 2,
     Sequence = 3,
     Off = 4,
-    Music = 5
+    Music = 5,
+    Pulse = 6,
+    Heartbeat = 7
 }

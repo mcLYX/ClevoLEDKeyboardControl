@@ -16,6 +16,10 @@ public sealed class KeyboardSettings
 
     public LightingEffectSettings Effect { get; set; } = new();
 
+    public EffectMemorySettings SavedEffects { get; set; } = new();
+
+    public EffectPresetSettings EffectPresets { get; set; } = new();
+
     public IdleDimSettings IdleDim { get; set; } = new();
 
     public ScheduleSettings Schedule { get; set; } = new();
@@ -59,6 +63,8 @@ public sealed class KeyboardSettings
                 KeyboardMode.Sequence => EffectType.Sequence,
                 KeyboardMode.Off => EffectType.Off,
                 KeyboardMode.Music => EffectType.Music,
+                KeyboardMode.Pulse => EffectType.Pulse,
+                KeyboardMode.Heartbeat => EffectType.Heartbeat,
                 _ => Effect.Type
             };
         }
@@ -78,6 +84,10 @@ public sealed class KeyboardSettings
         }
 
         Effect.Normalize();
+        SavedEffects ??= new EffectMemorySettings();
+        SavedEffects.Normalize();
+        EffectPresets ??= new EffectPresetSettings();
+        EffectPresets.Normalize();
         IdleDim ??= new IdleDimSettings();
         IdleDim.Normalize();
         Schedule ??= new ScheduleSettings();
@@ -98,6 +108,8 @@ public sealed class KeyboardSettings
             EffectType.Sequence => KeyboardMode.Sequence,
             EffectType.Off => KeyboardMode.Off,
             EffectType.Music => KeyboardMode.Music,
+            EffectType.Pulse => KeyboardMode.Pulse,
+            EffectType.Heartbeat => KeyboardMode.Heartbeat,
             _ => Mode
         };
 
@@ -119,6 +131,16 @@ public sealed class KeyboardSettings
             RefreshIntervalMs = RefreshIntervalMs,
             Brightness = Brightness,
             Effect = CloneEffect(Effect),
+            SavedEffects = new EffectMemorySettings
+            {
+                Static = CloneEffect(SavedEffects.Static),
+                Rainbow = CloneEffect(SavedEffects.Rainbow),
+                Breathing = CloneEffect(SavedEffects.Breathing),
+                Sequence = CloneEffect(SavedEffects.Sequence),
+                Pulse = CloneEffect(SavedEffects.Pulse),
+                Heartbeat = CloneEffect(SavedEffects.Heartbeat)
+            },
+            EffectPresets = CloneEffectPresets(EffectPresets),
             IdleDim = new IdleDimSettings
             {
                 Enabled = IdleDim.Enabled,
@@ -177,7 +199,7 @@ public sealed class KeyboardSettings
         }.Normalize();
     }
 
-    private static LightingEffectSettings CloneEffect(LightingEffectSettings effect)
+    public static LightingEffectSettings CloneEffect(LightingEffectSettings effect)
     {
         return new LightingEffectSettings
         {
@@ -188,6 +210,7 @@ public sealed class KeyboardSettings
             PeriodMs = effect.PeriodMs,
             MinimumBrightness = effect.MinimumBrightness,
             HardBlink = effect.HardBlink,
+            CustomSequenceColorsEnabled = effect.CustomSequenceColorsEnabled,
             Music = new MusicSettings
             {
                 LevelColorEnabled = effect.Music.LevelColorEnabled,
@@ -195,6 +218,7 @@ public sealed class KeyboardSettings
                 ResponseMode = effect.Music.ResponseMode,
                 LowColor = effect.Music.LowColor,
                 HighColor = effect.Music.HighColor,
+                Colors = [.. effect.Music.Colors],
                 Sensitivity = effect.Music.Sensitivity,
                 AttackMs = effect.Music.AttackMs,
                 ReleaseMs = effect.Music.ReleaseMs,
@@ -204,6 +228,7 @@ public sealed class KeyboardSettings
                 NoiseGate = effect.Music.NoiseGate,
                 BeatThreshold = effect.Music.BeatThreshold,
                 PeakHoldMs = effect.Music.PeakHoldMs,
+                FollowSystemVolume = effect.Music.FollowSystemVolume,
                 EqEnabled = effect.Music.EqEnabled,
                 EqLowHz = effect.Music.EqLowHz,
                 EqHighHz = effect.Music.EqHighHz,
@@ -221,6 +246,7 @@ public sealed class KeyboardSettings
                     ResponseMode = preset.ResponseMode,
                     LowColor = preset.LowColor,
                     HighColor = preset.HighColor,
+                    Colors = [.. preset.Colors],
                     Sensitivity = preset.Sensitivity,
                     AttackMs = preset.AttackMs,
                     ReleaseMs = preset.ReleaseMs,
@@ -230,6 +256,7 @@ public sealed class KeyboardSettings
                     NoiseGate = preset.NoiseGate,
                     BeatThreshold = preset.BeatThreshold,
                     PeakHoldMs = preset.PeakHoldMs,
+                    FollowSystemVolume = preset.FollowSystemVolume,
                     EqEnabled = preset.EqEnabled,
                     EqLowHz = preset.EqLowHz,
                     EqHighHz = preset.EqHighHz
@@ -243,5 +270,241 @@ public sealed class KeyboardSettings
                 Breathing = item.Breathing
             }).ToList()
         };
+    }
+
+    public static EffectPresetSettings CloneEffectPresets(EffectPresetSettings presets)
+    {
+        return new EffectPresetSettings
+        {
+            Static = presets.Static.Select(CloneEffectPreset).ToList(),
+            Rainbow = presets.Rainbow.Select(CloneEffectPreset).ToList(),
+            Breathing = presets.Breathing.Select(CloneEffectPreset).ToList(),
+            Sequence = presets.Sequence.Select(CloneEffectPreset).ToList(),
+            Pulse = presets.Pulse.Select(CloneEffectPreset).ToList(),
+            Heartbeat = presets.Heartbeat.Select(CloneEffectPreset).ToList()
+        }.Normalize();
+    }
+
+    public static EffectPreset CloneEffectPreset(EffectPreset preset)
+    {
+        return new EffectPreset
+        {
+            Name = preset.Name,
+            Effect = CloneEffect(preset.Effect)
+        };
+    }
+}
+
+public sealed class EffectMemorySettings
+{
+    public LightingEffectSettings Static { get; set; } =
+        new() { Type = EffectType.Static, Color = "#FF0000" };
+
+    public LightingEffectSettings Rainbow { get; set; } =
+        new()
+        {
+            Type = EffectType.Rainbow,
+            PeriodMs = EffectPresetSettings.DefaultPeriodMs,
+            CustomSequenceColorsEnabled = true,
+            Sequence =
+            [
+                new SequenceColor { Color = "#FF0000", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                new SequenceColor { Color = "#0000FF", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = false }
+            ]
+        };
+
+    public LightingEffectSettings Breathing { get; set; } =
+        new() { Type = EffectType.Breathing, Color = "#FF0000", PeriodMs = EffectPresetSettings.DefaultPeriodMs };
+
+    public LightingEffectSettings Sequence { get; set; } =
+        new()
+        {
+            Type = EffectType.Sequence,
+            PeriodMs = EffectPresetSettings.DefaultPeriodMs,
+            Sequence =
+            [
+                new SequenceColor { Color = "#FF0000", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = true },
+                new SequenceColor { Color = "#0000FF", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = true }
+            ]
+        };
+
+    public LightingEffectSettings Pulse { get; set; } =
+        EffectPresetSettings.CreateSoftwareDefault(EffectType.Pulse);
+
+    public LightingEffectSettings Heartbeat { get; set; } =
+        EffectPresetSettings.CreateSoftwareDefault(EffectType.Heartbeat);
+
+    public EffectMemorySettings Normalize()
+    {
+        Static = NormalizeForType(Static, EffectType.Static);
+        Rainbow = NormalizeForType(Rainbow, EffectType.Rainbow);
+        Rainbow.CustomSequenceColorsEnabled = true;
+        Breathing = NormalizeForType(Breathing, EffectType.Breathing);
+        Sequence = NormalizeForType(Sequence, EffectType.Sequence);
+        Pulse = NormalizeForType(Pulse, EffectType.Pulse);
+        Heartbeat = NormalizeForType(Heartbeat, EffectType.Heartbeat);
+        return this;
+    }
+
+    private static LightingEffectSettings NormalizeForType(LightingEffectSettings? effect, EffectType type)
+    {
+        effect ??= type is EffectType.Pulse or EffectType.Heartbeat
+            ? EffectPresetSettings.CreateSoftwareDefault(type)
+            : new LightingEffectSettings();
+        effect.Type = type;
+        return effect.Normalize();
+    }
+}
+
+public sealed class EffectPresetSettings
+{
+    public const int DefaultPeriodMs = 3000;
+    public const int DefaultPulsePeriodMs = 2000;
+    public const int DefaultHeartbeatPeriodMs = 1500;
+    public const int MaxPresetsPerMode = 16;
+
+    public List<EffectPreset> Static { get; set; } = [];
+
+    public List<EffectPreset> Rainbow { get; set; } = [];
+
+    public List<EffectPreset> Breathing { get; set; } = [];
+
+    public List<EffectPreset> Sequence { get; set; } = [];
+
+    public List<EffectPreset> Pulse { get; set; } = [];
+
+    public List<EffectPreset> Heartbeat { get; set; } = [];
+
+    public EffectPresetSettings Normalize()
+    {
+        Static = NormalizeList(Static, EffectType.Static);
+        Rainbow = NormalizeList(Rainbow, EffectType.Rainbow);
+        Breathing = NormalizeList(Breathing, EffectType.Breathing);
+        Sequence = NormalizeList(Sequence, EffectType.Sequence);
+        Pulse = NormalizeList(Pulse, EffectType.Pulse);
+        Heartbeat = NormalizeList(Heartbeat, EffectType.Heartbeat);
+        return this;
+    }
+
+    public List<EffectPreset> ForType(EffectType type) => type switch
+    {
+        EffectType.Static => Static,
+        EffectType.Rainbow => Rainbow,
+        EffectType.Breathing => Breathing,
+        EffectType.Sequence => Sequence,
+        EffectType.Pulse => Pulse,
+        EffectType.Heartbeat => Heartbeat,
+        _ => []
+    };
+
+    public static LightingEffectSettings CreateSoftwareDefault(EffectType type)
+    {
+        var effect = type switch
+        {
+            EffectType.Static => new LightingEffectSettings
+            {
+                Type = EffectType.Static,
+                Color = "#FF0000"
+            },
+            EffectType.Breathing => new LightingEffectSettings
+            {
+                Type = EffectType.Breathing,
+                Color = "#FF0000",
+                PeriodMs = DefaultPeriodMs,
+                MinimumBrightness = 0,
+                HardBlink = false
+            },
+            EffectType.Sequence => new LightingEffectSettings
+            {
+                Type = EffectType.Sequence,
+                PeriodMs = DefaultPeriodMs,
+                Sequence =
+                [
+                    new SequenceColor { Color = "#FF0000", HoldMs = DefaultPeriodMs, TransitionMs = 0, Breathing = true },
+                    new SequenceColor { Color = "#0000FF", HoldMs = DefaultPeriodMs, TransitionMs = 0, Breathing = true }
+                ]
+            },
+            EffectType.Pulse => new LightingEffectSettings
+            {
+                Type = EffectType.Pulse,
+                PeriodMs = DefaultPulsePeriodMs,
+                Sequence =
+                [
+                    new SequenceColor { Color = "#00FFFF", HoldMs = DefaultPulsePeriodMs, TransitionMs = 0, Breathing = false },
+                    new SequenceColor { Color = "#0060FF", HoldMs = DefaultPulsePeriodMs, TransitionMs = 0, Breathing = false },
+                    new SequenceColor { Color = "#8000FF", HoldMs = DefaultPulsePeriodMs, TransitionMs = 0, Breathing = false }
+                ]
+            },
+            EffectType.Heartbeat => new LightingEffectSettings
+            {
+                Type = EffectType.Heartbeat,
+                PeriodMs = DefaultHeartbeatPeriodMs,
+                Sequence =
+                [
+                    new SequenceColor { Color = "#FF0000", HoldMs = DefaultHeartbeatPeriodMs, TransitionMs = 0, Breathing = false },
+                    new SequenceColor { Color = "#FF4080", HoldMs = DefaultHeartbeatPeriodMs, TransitionMs = 0, Breathing = false }
+                ]
+            },
+            _ => new LightingEffectSettings
+            {
+                Type = EffectType.Rainbow,
+                PeriodMs = DefaultPeriodMs,
+                CustomSequenceColorsEnabled = true,
+                Sequence =
+                [
+                    new SequenceColor { Color = "#FF0000", HoldMs = DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                    new SequenceColor { Color = "#FFFF00", HoldMs = DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                    new SequenceColor { Color = "#00FF00", HoldMs = DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                    new SequenceColor { Color = "#00FFFF", HoldMs = DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                    new SequenceColor { Color = "#0000FF", HoldMs = DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                    new SequenceColor { Color = "#FF00FF", HoldMs = DefaultPeriodMs, TransitionMs = 0, Breathing = false }
+                ]
+            }
+        };
+
+        return effect.Normalize();
+    }
+
+    private static List<EffectPreset> NormalizeList(List<EffectPreset>? presets, EffectType type)
+    {
+        var result = new List<EffectPreset>();
+        foreach (var preset in presets ?? [])
+        {
+            var normalized = preset.Normalize(type);
+            if (string.IsNullOrWhiteSpace(normalized.Name) ||
+                result.Any(item => string.Equals(item.Name, normalized.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            result.Add(normalized);
+            if (result.Count >= MaxPresetsPerMode)
+            {
+                break;
+            }
+        }
+
+        return result;
+    }
+}
+
+public sealed class EffectPreset
+{
+    public string Name { get; set; } = "";
+
+    public LightingEffectSettings Effect { get; set; } = new();
+
+    public EffectPreset Normalize(EffectType type)
+    {
+        Name = Name.Trim();
+        Effect ??= EffectPresetSettings.CreateSoftwareDefault(type);
+        Effect.Type = type;
+        Effect.Normalize();
+        if (type == EffectType.Rainbow)
+        {
+            Effect.CustomSequenceColorsEnabled = true;
+        }
+
+        return this;
     }
 }

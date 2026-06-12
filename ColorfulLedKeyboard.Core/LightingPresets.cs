@@ -41,11 +41,11 @@ public static class LightingPresets
         settings.Effect = new LightingEffectSettings
         {
             Type = EffectType.Sequence,
-            IntervalMs = 35,
+            PeriodMs = EffectPresetSettings.DefaultPeriodMs,
             Sequence =
             [
-                new SequenceColor { Color = "#FF0000", HoldMs = 200, TransitionMs = 1200, Breathing = true },
-                new SequenceColor { Color = "#0000FF", HoldMs = 200, TransitionMs = 1200, Breathing = true }
+                new SequenceColor { Color = "#FF0000", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = true },
+                new SequenceColor { Color = "#0000FF", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = true }
             ]
         };
         settings.Normalize();
@@ -57,8 +57,17 @@ public static class LightingPresets
         settings.Effect = new LightingEffectSettings
         {
             Type = EffectType.Rainbow,
-            Step = 2,
-            IntervalMs = 55
+            PeriodMs = EffectPresetSettings.DefaultPeriodMs,
+            CustomSequenceColorsEnabled = true,
+            Sequence =
+            [
+                new SequenceColor { Color = "#FF0000", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                new SequenceColor { Color = "#FFFF00", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                new SequenceColor { Color = "#00FF00", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                new SequenceColor { Color = "#00FFFF", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                new SequenceColor { Color = "#0000FF", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = false },
+                new SequenceColor { Color = "#FF00FF", HoldMs = EffectPresetSettings.DefaultPeriodMs, TransitionMs = 0, Breathing = false }
+            ]
         };
         settings.Normalize();
     }

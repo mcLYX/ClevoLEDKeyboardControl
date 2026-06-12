@@ -10,11 +10,13 @@ public sealed class LightingEffectSettings
 
     public int IntervalMs { get; set; } = 40;
 
-    public int PeriodMs { get; set; } = 2200;
+    public int PeriodMs { get; set; } = EffectPresetSettings.DefaultPeriodMs;
 
     public int MinimumBrightness { get; set; } = 0;
 
     public bool HardBlink { get; set; }
+
+    public bool CustomSequenceColorsEnabled { get; set; }
 
     public List<SequenceColor> Sequence { get; set; } =
     [
@@ -78,7 +80,7 @@ public sealed class SequenceColor
 {
     public string Color { get; set; } = "#FF0000";
 
-    public int HoldMs { get; set; } = 300;
+    public int HoldMs { get; set; } = EffectPresetSettings.DefaultPeriodMs;
 
     public int TransitionMs { get; set; } = 1200;
 

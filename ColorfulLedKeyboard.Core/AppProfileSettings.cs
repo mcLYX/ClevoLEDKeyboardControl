@@ -55,7 +55,7 @@ public sealed class AppProfileRule
         {
             Type = TargetEffect,
             Color = AutoColorEnabled ? IconColor : ManualColor,
-            PeriodMs = 2200,
+            PeriodMs = EffectPresetSettings.DefaultPeriodMs,
             MinimumBrightness = 0,
             HardBlink = false
         }.Normalize();

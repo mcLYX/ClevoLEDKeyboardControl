@@ -5,9 +5,13 @@ using ColorfulLedKeyboard.Core;
 static class Program
 {
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
-        Application.Run(new TrayApplicationContext(new SettingsStore()));
+        var openSettingsOnStartup = args.Any(arg =>
+            string.Equals(arg, "--settings", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(arg, "/settings", StringComparison.OrdinalIgnoreCase));
+
+        Application.Run(new TrayApplicationContext(new SettingsStore(), openSettingsOnStartup));
     }    
 }

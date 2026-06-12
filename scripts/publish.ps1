@@ -7,7 +7,6 @@ $root = Split-Path -Parent $PSScriptRoot
 $publishRoot = Join-Path $root "publish"
 $servicePublish = Join-Path $publishRoot "Service"
 $trayPublish = Join-Path $publishRoot "Tray"
-$experimentalPublish = Join-Path $publishRoot "Experimental"
 $installerPayload = Join-Path $root "ColorfulLedKeyboard.Installer\Payload\payload.zip"
 $installerPublish = Join-Path $publishRoot "Setup"
 $driverDllName = "InsydeDCHU.dll"
@@ -42,7 +41,11 @@ function Get-FirstExistingDriver {
     return $null
 }
 
-New-Item -ItemType Directory -Force -Path $servicePublish, $trayPublish, $experimentalPublish, $installerPublish | Out-Null
+if (Test-Path $publishRoot) {
+    Get-ChildItem -LiteralPath $publishRoot -Force | Remove-Item -Recurse -Force
+}
+
+New-Item -ItemType Directory -Force -Path $servicePublish, $trayPublish, $installerPublish | Out-Null
 
 dotnet publish (Join-Path $root "ColorfulLedKeyboard.Service\ColorfulLedKeyboard.Service.csproj") `
     -c $Configuration `
@@ -56,12 +59,6 @@ dotnet publish (Join-Path $root "ColorfulLedKeyboard.Tray\ColorfulLedKeyboard.Tr
     --self-contained false `
     -o $trayPublish
 
-dotnet publish (Join-Path $root "ColorfulLedKeyboard.ZoneTest\ColorfulLedKeyboard.ZoneTest.csproj") `
-    -c $Configuration `
-    -r win-x64 `
-    --self-contained false `
-    -o $experimentalPublish
-
 if (Test-Path $installerPayload) {
     Remove-Item -LiteralPath $installerPayload -Force
 }
@@ -71,15 +68,13 @@ if (Test-Path $payloadStage) {
     Remove-Item -LiteralPath $payloadStage -Recurse -Force
 }
 
-New-Item -ItemType Directory -Force -Path (Join-Path $payloadStage "Service"), (Join-Path $payloadStage "Tray"), (Join-Path $payloadStage "Experimental") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $payloadStage "Service"), (Join-Path $payloadStage "Tray") | Out-Null
 Copy-Item -Path (Join-Path $servicePublish "*") -Destination (Join-Path $payloadStage "Service") -Recurse -Force
 Copy-Item -Path (Join-Path $trayPublish "*") -Destination (Join-Path $payloadStage "Tray") -Recurse -Force
-Copy-Item -Path (Join-Path $experimentalPublish "*") -Destination (Join-Path $payloadStage "Experimental") -Recurse -Force
 
 $driverSource = Get-FirstExistingDriver
 if ($driverSource) {
     Copy-Item -LiteralPath $driverSource -Destination (Join-Path $payloadStage "Service\$driverDllName") -Force
-    Copy-Item -LiteralPath $driverSource -Destination (Join-Path $payloadStage "Experimental\$driverDllName") -Force
     Write-Host "Bundled $driverDllName from $driverSource"
 }
 else {
@@ -99,6 +94,5 @@ Copy-Item -LiteralPath (Join-Path $installerPublish "ClevoLEDKeyboardControlSetu
 
 Write-Host "Published service to $servicePublish"
 Write-Host "Published tray app to $trayPublish"
-Write-Host "Published experimental tools to $experimentalPublish"
 Write-Host "Published setup executable to $(Join-Path $publishRoot "ClevoLEDKeyboardControlSetup.exe")"
 Write-Host "Setup will automatically search for $driverDllName in the setup payload, next to the setup executable, old install directories, and OEM Control Center folders."

@@ -2,7 +2,20 @@ namespace ColorfulLedKeyboard.Core;
 
 public sealed class MusicSettings
 {
-    public string PresetName { get; set; } = "流行";
+    private static readonly string[] DefaultColorValues =
+    [
+        "#FF0000", "#FF8000", "#FFFF00", "#80FF00", "#00FF00", "#00FF80",
+        "#00FFFF", "#0080FF", "#0000FF", "#8000FF", "#FF00FF", "#FF0080",
+        "#B80000", "#B85C00", "#B8B800", "#5CB800", "#00B800", "#00B85C",
+        "#00B8B8", "#005CB8", "#0000B8", "#5C00B8", "#B800B8", "#B8005C",
+        "#750000", "#753B00", "#757500", "#3B7500", "#007500", "#00753B",
+        "#007575", "#003B75", "#000075", "#3B0075", "#750075", "#75003B",
+        "#FFFFFF", "#E0E0E0", "#C0C0C0", "#A0A0A0", "#808080", "#606060",
+        "#FFD2A1", "#CFE8FF", "#FFB4DC", "#B4FFD2"
+    ];
+    public const string DefaultPresetName = "通用";
+
+    public string PresetName { get; set; } = DefaultPresetName;
 
     public MusicResponseMode ResponseMode { get; set; } = MusicResponseMode.LevelColor;
 
@@ -12,29 +25,33 @@ public sealed class MusicSettings
 
     public string HighColor { get; set; } = "#FF0040";
 
-    public double Sensitivity { get; set; } = 1.5;
+    public List<string> Colors { get; set; } = [];
+
+    public double Sensitivity { get; set; } = 2.0;
 
     public int AttackMs { get; set; } = 35;
 
-    public int ReleaseMs { get; set; } = 180;
+    public int ReleaseMs { get; set; } = 80;
 
-    public int BaseBrightness { get; set; } = 5;
+    public int BaseBrightness { get; set; } = 25;
 
     public int PeakBrightness { get; set; } = 100;
 
     public int IntervalMs { get; set; } = 25;
 
-    public double NoiseGate { get; set; } = 0.04;
+    public double NoiseGate { get; set; } = 0;
 
-    public double BeatThreshold { get; set; } = 0.12;
+    public double BeatThreshold { get; set; } = 0.02;
 
     public int PeakHoldMs { get; set; } = 90;
 
-    public bool EqEnabled { get; set; } = true;
+    public bool FollowSystemVolume { get; set; }
 
-    public int EqLowHz { get; set; } = 60;
+    public bool EqEnabled { get; set; }
 
-    public int EqHighHz { get; set; } = 180;
+    public int EqLowHz { get; set; } = 30;
+
+    public int EqHighHz { get; set; } = 5000;
 
     public SpotifySettings Spotify { get; set; } = new();
 
@@ -42,7 +59,7 @@ public sealed class MusicSettings
 
     public MusicSettings Normalize()
     {
-        PresetName = string.IsNullOrWhiteSpace(PresetName) ? "流行" : PresetName.Trim();
+        PresetName = NormalizePresetName(PresetName);
         if (!Enum.IsDefined(ResponseMode))
         {
             ResponseMode = LevelColorEnabled ? MusicResponseMode.LevelColor : MusicResponseMode.BrightnessPulse;
@@ -50,6 +67,9 @@ public sealed class MusicSettings
 
         LowColor = LightingEffectSettings.NormalizeHex(LowColor, "#0040FF");
         HighColor = LightingEffectSettings.NormalizeHex(HighColor, "#FF0040");
+        Colors = NormalizeColors(Colors, LowColor, HighColor);
+        LowColor = Colors[0];
+        HighColor = Colors[^1];
         Sensitivity = Math.Clamp(Sensitivity, 0.5, 2.0);
         AttackMs = Math.Clamp(AttackMs, 10, 1000);
         ReleaseMs = Math.Clamp(ReleaseMs, 20, 3000);
@@ -82,6 +102,7 @@ public sealed class MusicSettings
         LevelColorEnabled = ResponseMode == MusicResponseMode.LevelColor;
         LowColor = preset.LowColor;
         HighColor = preset.HighColor;
+        Colors = [.. preset.Colors];
         Sensitivity = preset.Sensitivity;
         AttackMs = preset.AttackMs;
         ReleaseMs = preset.ReleaseMs;
@@ -91,6 +112,7 @@ public sealed class MusicSettings
         NoiseGate = preset.NoiseGate;
         BeatThreshold = preset.BeatThreshold;
         PeakHoldMs = preset.PeakHoldMs;
+        FollowSystemVolume = preset.FollowSystemVolume;
         EqEnabled = preset.EqEnabled;
         EqLowHz = preset.EqLowHz;
         EqHighHz = preset.EqHighHz;
@@ -105,6 +127,7 @@ public sealed class MusicSettings
             ResponseMode = ResponseMode,
             LowColor = LowColor,
             HighColor = HighColor,
+            Colors = [.. Colors],
             Sensitivity = Sensitivity,
             AttackMs = AttackMs,
             ReleaseMs = ReleaseMs,
@@ -114,6 +137,7 @@ public sealed class MusicSettings
             NoiseGate = NoiseGate,
             BeatThreshold = BeatThreshold,
             PeakHoldMs = PeakHoldMs,
+            FollowSystemVolume = FollowSystemVolume,
             EqEnabled = EqEnabled,
             EqLowHz = EqLowHz,
             EqHighHz = EqHighHz
@@ -123,82 +147,88 @@ public sealed class MusicSettings
     public static bool IsBuiltInPresetName(string? name)
     {
         return !string.IsNullOrWhiteSpace(name) &&
-            BuiltInPresets.Any(preset => string.Equals(preset.Name, name.Trim(), StringComparison.OrdinalIgnoreCase));
+            (BuiltInPresets.Any(preset => string.Equals(preset.Name, name.Trim(), StringComparison.OrdinalIgnoreCase)) ||
+             IsLegacyBuiltInPresetName(name));
     }
+
+    private static string NormalizePresetName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || IsLegacyBuiltInPresetName(name))
+        {
+            return DefaultPresetName;
+        }
+
+        return name.Trim();
+    }
+
+    private static bool IsLegacyBuiltInPresetName(string? name)
+    {
+        var trimmed = name?.Trim();
+        return string.Equals(trimmed, "自定义", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "流行", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "摇滚", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "电子", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "经典", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static List<string> DefaultColors() => [.. DefaultColorValues];
+
+    private static List<string> NormalizeColors(List<string>? colors, string lowColor, string highColor)
+    {
+        var normalized = (colors ?? [])
+            .Select(color => LightingEffectSettings.NormalizeHex(color, ""))
+            .Where(color => !string.IsNullOrWhiteSpace(color))
+            .ToList();
+
+        if (normalized.Count == 0)
+        {
+            if (IsFactoryLegacyColorPair(lowColor, highColor))
+            {
+                normalized.AddRange(DefaultColorValues);
+            }
+            else
+            {
+                normalized.Add(lowColor);
+                if (!string.Equals(lowColor, highColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized.Add(highColor);
+                }
+            }
+        }
+
+        if (normalized.Count == 0)
+        {
+            normalized.AddRange(DefaultColorValues);
+        }
+
+        return normalized.Take(48).ToList();
+    }
+
+    private static bool IsFactoryLegacyColorPair(string lowColor, string highColor) =>
+        string.Equals(lowColor, "#0040FF", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(highColor, "#FF0040", StringComparison.OrdinalIgnoreCase);
 
     public static IReadOnlyList<MusicPreset> BuiltInPresets { get; } =
     [
         new MusicPreset
         {
-            Name = "自定义",
-            ResponseMode = MusicResponseMode.BrightnessPulse,
-            LowColor = "#0040FF",
-            HighColor = "#FF0040",
-            Sensitivity = 1.3,
+            Name = DefaultPresetName,
+            ResponseMode = MusicResponseMode.LevelColor,
+            LowColor = "#FF0000",
+            HighColor = "#B4FFD2",
+            Colors = DefaultColors(),
+            Sensitivity = 2.0,
             AttackMs = 35,
-            ReleaseMs = 160,
-            BaseBrightness = 5,
-            PeakBrightness = 100,
-            NoiseGate = 0.07,
-            BeatThreshold = 0.16,
-            PeakHoldMs = 50,
-            EqEnabled = true,
-            EqLowHz = 50,
-            EqHighHz = 220
-        }.Normalize(),
-        new MusicPreset
-        {
-            Name = "流行",
-            ResponseMode = MusicResponseMode.LevelColor,
-            LowColor = "#0040FF",
-            HighColor = "#FF2A5F",
-            Sensitivity = 1.15,
-            AttackMs = 25,
-            ReleaseMs = 150,
-            BaseBrightness = 8,
-            PeakBrightness = 100,
-            NoiseGate = 0.08,
-            BeatThreshold = 0.18,
-            PeakHoldMs = 50,
-            EqEnabled = true,
-            EqLowHz = 50,
-            EqHighHz = 220
-        }.Normalize(),
-        new MusicPreset
-        {
-            Name = "摇滚",
-            ResponseMode = MusicResponseMode.BrightnessPulse,
-            LowColor = "#FF2020",
-            HighColor = "#FFFFFF",
-            Sensitivity = 1.35,
-            AttackMs = 15,
-            ReleaseMs = 110,
-            BaseBrightness = 18,
-            PeakBrightness = 100,
-            NoiseGate = 0.09,
-            BeatThreshold = 0.16,
-            PeakHoldMs = 45,
-            EqEnabled = true,
-            EqLowHz = 55,
-            EqHighHz = 260
-        }.Normalize(),
-        new MusicPreset
-        {
-            Name = "电子",
-            ResponseMode = MusicResponseMode.LevelColor,
-            LowColor = "#00E5FF",
-            HighColor = "#FF00C8",
-            Sensitivity = 1.45,
-            AttackMs = 15,
             ReleaseMs = 80,
-            BaseBrightness = 5,
+            BaseBrightness = 25,
             PeakBrightness = 100,
-            NoiseGate = 0.08,
-            BeatThreshold = 0.15,
-            PeakHoldMs = 35,
-            EqEnabled = true,
-            EqLowHz = 40,
-            EqHighHz = 220
+            NoiseGate = 0,
+            BeatThreshold = 0.02,
+            PeakHoldMs = 50,
+            FollowSystemVolume = false,
+            EqEnabled = false,
+            EqLowHz = 30,
+            EqHighHz = 5000
         }.Normalize()
     ];
 }
@@ -211,7 +241,7 @@ public enum MusicResponseMode
 
 public sealed class MusicPreset
 {
-    public string Name { get; set; } = "自定义";
+    public string Name { get; set; } = MusicSettings.DefaultPresetName;
 
     public MusicResponseMode ResponseMode { get; set; } = MusicResponseMode.LevelColor;
 
@@ -219,29 +249,33 @@ public sealed class MusicPreset
 
     public string HighColor { get; set; } = "#FF0040";
 
-    public double Sensitivity { get; set; } = 1.5;
+    public List<string> Colors { get; set; } = [];
+
+    public double Sensitivity { get; set; } = 2.0;
 
     public int AttackMs { get; set; } = 35;
 
-    public int ReleaseMs { get; set; } = 180;
+    public int ReleaseMs { get; set; } = 80;
 
-    public int BaseBrightness { get; set; } = 5;
+    public int BaseBrightness { get; set; } = 25;
 
     public int PeakBrightness { get; set; } = 100;
 
     public int IntervalMs { get; set; } = 25;
 
-    public double NoiseGate { get; set; } = 0.04;
+    public double NoiseGate { get; set; } = 0;
 
-    public double BeatThreshold { get; set; } = 0.12;
+    public double BeatThreshold { get; set; } = 0.02;
 
     public int PeakHoldMs { get; set; } = 90;
 
-    public bool EqEnabled { get; set; } = true;
+    public bool FollowSystemVolume { get; set; }
 
-    public int EqLowHz { get; set; } = 60;
+    public bool EqEnabled { get; set; }
 
-    public int EqHighHz { get; set; } = 180;
+    public int EqLowHz { get; set; } = 30;
+
+    public int EqHighHz { get; set; } = 5000;
 
     public MusicPreset Normalize()
     {
@@ -253,6 +287,9 @@ public sealed class MusicPreset
 
         LowColor = LightingEffectSettings.NormalizeHex(LowColor, "#0040FF");
         HighColor = LightingEffectSettings.NormalizeHex(HighColor, "#FF0040");
+        Colors = NormalizeColors(Colors, LowColor, HighColor);
+        LowColor = Colors[0];
+        HighColor = Colors[^1];
         Sensitivity = Math.Clamp(Sensitivity, 0.5, 2.0);
         AttackMs = Math.Clamp(AttackMs, 10, 1000);
         ReleaseMs = Math.Clamp(ReleaseMs, 20, 3000);
@@ -266,4 +303,39 @@ public sealed class MusicPreset
         EqHighHz = Math.Clamp(EqHighHz, EqLowHz + 10, 8000);
         return this;
     }
+
+    private static List<string> NormalizeColors(List<string>? colors, string lowColor, string highColor)
+    {
+        var normalized = (colors ?? [])
+            .Select(color => LightingEffectSettings.NormalizeHex(color, ""))
+            .Where(color => !string.IsNullOrWhiteSpace(color))
+            .ToList();
+
+        if (normalized.Count == 0)
+        {
+            if (IsFactoryLegacyColorPair(lowColor, highColor))
+            {
+                normalized.AddRange(MusicSettings.DefaultColors());
+            }
+            else
+            {
+                normalized.Add(lowColor);
+                if (!string.Equals(lowColor, highColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    normalized.Add(highColor);
+                }
+            }
+        }
+
+        if (normalized.Count == 0)
+        {
+            normalized.AddRange(MusicSettings.DefaultColors());
+        }
+
+        return normalized.Take(48).ToList();
+    }
+
+    private static bool IsFactoryLegacyColorPair(string lowColor, string highColor) =>
+        string.Equals(lowColor, "#0040FF", StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(highColor, "#FF0040", StringComparison.OrdinalIgnoreCase);
 }

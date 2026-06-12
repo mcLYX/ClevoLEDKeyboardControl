@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Security.Principal;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Win32;
 
 namespace ColorfulLedKeyboard.Installer;
@@ -30,6 +31,8 @@ internal static class Program
     private static readonly string ExperimentalDirectory = Path.Combine(InstallDirectory, "Experimental");
     private static readonly string ServiceExe = Path.Combine(ServiceDirectory, "ColorfulLedKeyboard.Service.exe");
     private static readonly string TrayExe = Path.Combine(TrayDirectory, "ColorfulLedKeyboard.Tray.exe");
+    private static readonly string UninstallerExe = Path.Combine(InstallDirectory, "ClevoLEDKeyboardControlUninstall.exe");
+    private static readonly string LegacyInstalledSetupExe = Path.Combine(InstallDirectory, "ClevoLEDKeyboardControlSetup.exe");
     private static readonly string ProgramDataDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
         "ClevoLEDKeyboardControl");
@@ -45,36 +48,71 @@ internal static class Program
                 return 1;
             }
 
-            if (args.Any(arg => string.Equals(arg, "/uninstall", StringComparison.OrdinalIgnoreCase)))
+            if (IsUninstallerProcess() && args.Length == 0)
             {
-                Uninstall();
-                Show($"{AppName} has been removed.");
+                var keepSettings = AskKeepSettingsBeforeUninstall();
+                if (keepSettings is null)
+                {
+                    return 0;
+                }
+
+                RelaunchUninstallFromTemp(keepSettings.Value);
+                return 0;
+            }
+
+            if (HasArgument(args, "/uninstall"))
+            {
+                var keepSettings = HasArgument(args, "/keep-settings");
+                if (!HasArgument(args, "/uninstall-from-temp") && IsRunningFromInstallDirectory())
+                {
+                    RelaunchUninstallFromTemp(keepSettings);
+                    return 0;
+                }
+
+                Uninstall(keepSettings);
+                Show(BuildUninstallSuccessMessage(keepSettings));
+                if (HasArgument(args, "/uninstall-from-temp"))
+                {
+                    ScheduleFileRemoval(Environment.ProcessPath!, "temp-uninstaller");
+                }
+
+                return 0;
+            }
+
+            if (HasArgument(args, "/repair"))
+            {
+                Install();
+                Show(BuildInstallSuccessMessage());
+                StartTray();
                 return 0;
             }
 
             if (IsInstalled())
             {
-                var choice = MessageBox.Show(
-                    $"{AppName} is already installed.\n\nYes: repair or update\nNo: uninstall\nCancel: do nothing",
-                    AppName,
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Question);
+                var choice = AskInstalledAction();
 
-                if (choice == DialogResult.Cancel)
+                if (choice == InstalledAction.Cancel)
                 {
                     return 0;
                 }
 
-                if (choice == DialogResult.No)
+                if (choice == InstalledAction.Uninstall)
                 {
-                    Uninstall();
-                    Show($"{AppName} has been removed.");
+                    var keepSettings = AskKeepSettingsBeforeUninstall();
+                    if (keepSettings is null)
+                    {
+                        return 0;
+                    }
+
+                    Uninstall(keepSettings.Value);
+                    Show(BuildUninstallSuccessMessage(keepSettings.Value));
                     return 0;
                 }
             }
 
             Install();
             Show(BuildInstallSuccessMessage());
+            StartTray();
             return 0;
         }
         catch (Exception ex)
@@ -89,7 +127,10 @@ internal static class Program
         StopAndDeleteServiceIfPresent(ServiceName);
         StopAndDeleteServiceIfPresent(LegacyServiceName);
         StopAndDeleteServiceIfPresent(LegacyServiceNameClevoRgb);
+        KillTray();
         Directory.CreateDirectory(InstallDirectory);
+        CleanPayloadDirectories();
+        RemoveLegacyInstalledSetup();
         ExtractPayload();
         EnsureProgramDataPermissions();
         TryInstallDriverDll();
@@ -105,36 +146,37 @@ internal static class Program
 
         AddTrayStartup();
         RegisterUninstaller();
-        StartTray();
     }
 
     private static bool TryInstallDriverDll()
     {
         var serviceDestination = Path.Combine(ServiceDirectory, DriverDllName);
-        var sourcePath = FindDriverDll(serviceDestination);
-        if (sourcePath is null)
+        var driver = FindDriverDll(serviceDestination);
+        if (driver is null)
         {
+            SaveDriverComponentState("Missing", null, null, serviceDestination);
             return false;
         }
 
         Directory.CreateDirectory(ServiceDirectory);
         if (!string.Equals(
-            Path.GetFullPath(sourcePath),
+            Path.GetFullPath(driver.Path),
             Path.GetFullPath(serviceDestination),
             StringComparison.OrdinalIgnoreCase))
         {
-            File.Copy(sourcePath, serviceDestination, overwrite: true);
+            File.Copy(driver.Path, serviceDestination, overwrite: true);
         }
 
         CopyDriverToExperimental(serviceDestination);
+        SaveDriverComponentState("Installed", driver.Source, driver.Path, serviceDestination);
         return true;
     }
 
-    private static string? FindDriverDll(string serviceDestination)
+    private static DriverSearchResult? FindDriverDll(string serviceDestination)
     {
-        foreach (var path in GetDriverSearchPaths(serviceDestination).Distinct(StringComparer.OrdinalIgnoreCase))
+        foreach (var path in GetDriverSearchPaths(serviceDestination).DistinctBy(candidate => candidate.Path, StringComparer.OrdinalIgnoreCase))
         {
-            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            if (!string.IsNullOrWhiteSpace(path.Path) && File.Exists(path.Path))
             {
                 return path;
             }
@@ -143,20 +185,20 @@ internal static class Program
         return null;
     }
 
-    private static IEnumerable<string> GetDriverSearchPaths(string serviceDestination)
+    private static IEnumerable<DriverSearchResult> GetDriverSearchPaths(string serviceDestination)
     {
-        yield return serviceDestination;
+        yield return new DriverSearchResult("安装包内置", serviceDestination);
 
         var setupDirectory = Path.GetDirectoryName(Environment.ProcessPath);
         if (!string.IsNullOrWhiteSpace(setupDirectory))
         {
-            yield return Path.Combine(setupDirectory, DriverDllName);
+            yield return new DriverSearchResult("安装器同目录", Path.Combine(setupDirectory, DriverDllName));
         }
 
         var oldInstallRoot = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         foreach (var oldFolder in new[] { "ClevoRGBControl", "ColorfulLedKeyboard" })
         {
-            yield return Path.Combine(oldInstallRoot, oldFolder, "Service", DriverDllName);
+            yield return new DriverSearchResult("旧版安装目录", Path.Combine(oldInstallRoot, oldFolder, "Service", DriverDllName));
         }
 
         foreach (var root in new[]
@@ -172,8 +214,27 @@ internal static class Program
 
             foreach (var controlCenterFolder in new[] { "ControlCenter", "Control Center", "ControlCenter3", "Control Center 3.0" })
             {
-                yield return Path.Combine(root, controlCenterFolder, DriverDllName);
+                yield return new DriverSearchResult("OEM Control Center", Path.Combine(root, controlCenterFolder, DriverDllName));
             }
+        }
+    }
+
+    private static void SaveDriverComponentState(string status, string? source, string? sourcePath, string installedPath)
+    {
+        try
+        {
+            Directory.CreateDirectory(ProgramDataDirectory);
+            var statePath = Path.Combine(ProgramDataDirectory, "driver-component.json");
+            var state = new DriverComponentState(
+                Status: status,
+                Source: source,
+                SourcePath: sourcePath,
+                InstalledPath: installedPath,
+                UpdatedUtc: DateTimeOffset.UtcNow);
+            File.WriteAllText(statePath, JsonSerializer.Serialize(state, JsonOptions));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
         }
     }
 
@@ -190,15 +251,42 @@ internal static class Program
     private static string BuildInstallSuccessMessage()
     {
         var destination = Path.Combine(ServiceDirectory, DriverDllName);
+        var serviceStatus = GetServiceStatusText();
         if (File.Exists(destination))
         {
-            return $"{AppName} has been installed.\n\n{DriverDllName} was installed automatically.\n\nThe tray app will start automatically for the current user.";
+            return $"{AppName} 已安装。\n\n服务：{serviceStatus}\n厂商灯控组件：已安装\n开机自启动：已启用\n\n设置窗口将自动打开。";
         }
 
-        return $"{AppName} has been installed.\n\n{DriverDllName} was not found automatically. Install the OEM Control Center, then run this installer again to repair the installation.\n\nThe tray app will start automatically for the current user.";
+        return $"{AppName} 已安装。\n\n服务：{serviceStatus}\n厂商灯控组件：未找到\n开机自启动：已启用\n\n安装包内没有包含厂商灯控组件，且本机未检测到 OEM Control Center。程序已安装，但暂时无法控制键盘灯。请安装 OEM Control Center 后重新运行安装器进行修复。\n\n设置窗口将自动打开。";
     }
 
-    private static void Uninstall()
+    private static string GetServiceStatusText()
+    {
+        var query = Run("sc.exe", $"query {ServiceName}", allowFailure: true);
+        if (query.ExitCode != 0)
+        {
+            return "未安装";
+        }
+
+        if (query.Output.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
+        {
+            return "运行中";
+        }
+
+        if (query.Output.Contains("START_PENDING", StringComparison.OrdinalIgnoreCase))
+        {
+            return "正在启动";
+        }
+
+        if (query.Output.Contains("STOPPED", StringComparison.OrdinalIgnoreCase))
+        {
+            return "已停止";
+        }
+
+        return "已安装";
+    }
+
+    private static void Uninstall(bool keepSettings)
     {
         StopAndDeleteServiceIfPresent(ServiceName);
         StopAndDeleteServiceIfPresent(LegacyServiceName);
@@ -210,6 +298,11 @@ internal static class Program
         if (Directory.Exists(InstallDirectory))
         {
             TryDeleteInstallDirectory();
+        }
+
+        if (!keepSettings)
+        {
+            TryDeleteProgramDataDirectory();
         }
     }
 
@@ -231,18 +324,161 @@ internal static class Program
 
     private static void ScheduleInstallDirectoryRemoval()
     {
-        var scriptPath = Path.Combine(Path.GetTempPath(), $"ClevoLEDKeyboardControl-uninstall-{Guid.NewGuid():N}.cmd");
+        ScheduleDirectoryRemoval(InstallDirectory, "uninstall");
+    }
+
+    private static void TryDeleteProgramDataDirectory()
+    {
+        if (!Directory.Exists(ProgramDataDirectory))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(ProgramDataDirectory, recursive: true);
+        }
+        catch (IOException)
+        {
+            ScheduleDirectoryRemoval(ProgramDataDirectory, "purge-config");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            ScheduleDirectoryRemoval(ProgramDataDirectory, "purge-config");
+        }
+    }
+
+    private static void CleanPayloadDirectories()
+    {
+        TryDeleteDirectory(ServiceDirectory);
+        TryDeleteDirectory(TrayDirectory);
+        TryDeleteDirectory(ExperimentalDirectory);
+    }
+
+    private static void RemoveLegacyInstalledSetup()
+    {
+        if (!File.Exists(LegacyInstalledSetupExe))
+        {
+            return;
+        }
+
+        try
+        {
+            if (string.Equals(
+                Path.GetFullPath(LegacyInstalledSetupExe),
+                Path.GetFullPath(Environment.ProcessPath ?? string.Empty),
+                StringComparison.OrdinalIgnoreCase))
+            {
+                ScheduleFileRemoval(LegacyInstalledSetupExe, "remove-legacy-setup");
+                return;
+            }
+
+            File.Delete(LegacyInstalledSetupExe);
+        }
+        catch (IOException)
+        {
+            ScheduleFileRemoval(LegacyInstalledSetupExe, "remove-legacy-setup");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            ScheduleFileRemoval(LegacyInstalledSetupExe, "remove-legacy-setup");
+        }
+    }
+
+    private static void TryDeleteDirectory(string directory)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (IOException)
+        {
+            throw new InvalidOperationException($"Failed to clean old install directory. Close running {AppName} processes and try again: {directory}");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException($"Failed to clean old install directory. Close running {AppName} processes and try again: {directory}");
+        }
+    }
+
+    private static void ScheduleDirectoryRemoval(string directory, string operation)
+    {
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"ClevoLEDKeyboardControl-{operation}-{Guid.NewGuid():N}.cmd");
         File.WriteAllText(
             scriptPath,
             $"""
             @echo off
-            timeout /t 3 /nobreak > nul
-            rmdir /s /q "{InstallDirectory}"
+            for /l %%i in (1,1,15) do (
+                rmdir /s /q "{directory}" 2>nul
+                if not exist "{directory}" goto done
+                timeout /t 1 /nobreak > nul
+            )
+            :done
             del "%~f0"
             """,
             Encoding.ASCII);
 
         Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            WindowStyle = ProcessWindowStyle.Hidden
+        });
+    }
+
+    private static void ScheduleFileRemoval(string filePath, string operation)
+    {
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"ClevoLEDKeyboardControl-{operation}-{Guid.NewGuid():N}.cmd");
+        File.WriteAllText(
+            scriptPath,
+            $"""
+            @echo off
+            for /l %%i in (1,1,15) do (
+                del /f /q "{filePath}" 2>nul
+                if not exist "{filePath}" goto done
+                timeout /t 1 /nobreak > nul
+            )
+            :done
+            del "%~f0"
+            """,
+            Encoding.ASCII);
+
+        Process.Start(new ProcessStartInfo("cmd.exe", $"/c \"{scriptPath}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            WindowStyle = ProcessWindowStyle.Hidden
+        });
+    }
+
+    private static bool IsRunningFromInstallDirectory()
+    {
+        var processPath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(processPath))
+        {
+            return false;
+        }
+
+        var processDirectory = Path.GetFullPath(Path.GetDirectoryName(processPath) ?? "");
+        var installDirectory = Path.GetFullPath(InstallDirectory);
+        return string.Equals(processDirectory, installDirectory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void RelaunchUninstallFromTemp(bool keepSettings)
+    {
+        var tempUninstaller = Path.Combine(Path.GetTempPath(), $"ClevoLEDKeyboardControl-uninstall-{Guid.NewGuid():N}.exe");
+        File.Copy(Environment.ProcessPath!, tempUninstaller, overwrite: true);
+
+        var arguments = keepSettings
+            ? "/uninstall /uninstall-from-temp /keep-settings"
+            : "/uninstall /uninstall-from-temp";
+
+        Process.Start(new ProcessStartInfo(tempUninstaller, arguments)
         {
             CreateNoWindow = true,
             UseShellExecute = false,
@@ -289,8 +525,7 @@ internal static class Program
 
     private static void RegisterUninstaller()
     {
-        var setupPath = Path.Combine(InstallDirectory, "ClevoLEDKeyboardControlSetup.exe");
-        File.Copy(Environment.ProcessPath!, setupPath, overwrite: true);
+        File.Copy(Environment.ProcessPath!, UninstallerExe, overwrite: true);
 
         using var key = Registry.LocalMachine.CreateSubKey(UninstallKeyPath, writable: true)
             ?? throw new InvalidOperationException("Failed to create uninstall registry key.");
@@ -299,9 +534,9 @@ internal static class Program
         key.SetValue("DisplayVersion", Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "1.0.1");
         key.SetValue("Publisher", "ClevoLEDKeyboardControl");
         key.SetValue("InstallLocation", InstallDirectory);
-        key.SetValue("DisplayIcon", setupPath);
-        key.SetValue("UninstallString", $"\"{setupPath}\" /uninstall");
-        key.SetValue("QuietUninstallString", $"\"{setupPath}\" /uninstall");
+        key.SetValue("DisplayIcon", UninstallerExe);
+        key.SetValue("UninstallString", $"\"{UninstallerExe}\"");
+        key.SetValue("QuietUninstallString", $"\"{UninstallerExe}\" /uninstall");
         key.SetValue("NoModify", 1, RegistryValueKind.DWord);
         key.SetValue("NoRepair", 1, RegistryValueKind.DWord);
         key.SetValue("EstimatedSize", GetDirectorySizeInKb(InstallDirectory), RegistryValueKind.DWord);
@@ -324,7 +559,7 @@ internal static class Program
     {
         if (File.Exists(TrayExe))
         {
-            Process.Start(new ProcessStartInfo(TrayExe) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(TrayExe, "--settings") { UseShellExecute = true });
         }
     }
 
@@ -339,7 +574,8 @@ internal static class Program
 
     private static bool IsInstalled()
     {
-        return Directory.Exists(InstallDirectory) ||
+        return File.Exists(ServiceExe) ||
+            File.Exists(TrayExe) ||
             Registry.LocalMachine.OpenSubKey(UninstallKeyPath) is not null ||
             Run("sc.exe", $"query {ServiceName}", allowFailure: true).ExitCode == 0 ||
             Run("sc.exe", $"query {LegacyServiceName}", allowFailure: true).ExitCode == 0 ||
@@ -399,5 +635,150 @@ internal static class Program
         MessageBox.Show(message, AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
+    private static bool? AskKeepSettingsBeforeUninstall()
+    {
+        using var form = new Form
+        {
+            Text = $"{AppName} 卸载",
+            StartPosition = FormStartPosition.CenterScreen,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ClientSize = new Size(420, 170)
+        };
+
+        var message = new Label
+        {
+            Text = "将卸载程序并默认删除本机配置。",
+            Location = new Point(22, 20),
+            Size = new Size(370, 26)
+        };
+
+        var keepSettings = new CheckBox
+        {
+            Text = "保留我的设置和配置文件",
+            Location = new Point(22, 58),
+            Size = new Size(260, 28)
+        };
+
+        var uninstall = new Button
+        {
+            Text = "卸载",
+            DialogResult = DialogResult.OK,
+            Location = new Point(220, 112),
+            Size = new Size(82, 30)
+        };
+
+        var cancel = new Button
+        {
+            Text = "取消",
+            DialogResult = DialogResult.Cancel,
+            Location = new Point(314, 112),
+            Size = new Size(82, 30)
+        };
+
+        form.Controls.Add(message);
+        form.Controls.Add(keepSettings);
+        form.Controls.Add(uninstall);
+        form.Controls.Add(cancel);
+        form.AcceptButton = uninstall;
+        form.CancelButton = cancel;
+
+        return form.ShowDialog() == DialogResult.OK
+            ? keepSettings.Checked
+            : null;
+    }
+
+    private static InstalledAction AskInstalledAction()
+    {
+        using var form = new Form
+        {
+            Text = AppName,
+            StartPosition = FormStartPosition.CenterScreen,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ClientSize = new Size(460, 178)
+        };
+
+        var message = new Label
+        {
+            Text = $"{AppName} 已安装。请选择要执行的操作。",
+            Location = new Point(22, 22),
+            Size = new Size(410, 28)
+        };
+
+        var repair = new Button
+        {
+            Text = "修复或更新",
+            DialogResult = DialogResult.Yes,
+            Location = new Point(108, 118),
+            Size = new Size(104, 32)
+        };
+
+        var uninstall = new Button
+        {
+            Text = "卸载",
+            DialogResult = DialogResult.No,
+            Location = new Point(224, 118),
+            Size = new Size(82, 32)
+        };
+
+        var cancel = new Button
+        {
+            Text = "取消",
+            DialogResult = DialogResult.Cancel,
+            Location = new Point(318, 118),
+            Size = new Size(82, 32)
+        };
+
+        form.Controls.Add(message);
+        form.Controls.Add(repair);
+        form.Controls.Add(uninstall);
+        form.Controls.Add(cancel);
+        form.AcceptButton = repair;
+        form.CancelButton = cancel;
+
+        return form.ShowDialog() switch
+        {
+            DialogResult.Yes => InstalledAction.RepairOrUpdate,
+            DialogResult.No => InstalledAction.Uninstall,
+            _ => InstalledAction.Cancel
+        };
+    }
+
+    private static string BuildUninstallSuccessMessage(bool keepSettings)
+    {
+        var configStatus = keepSettings ? "已保留" : "已删除或已安排删除";
+        return $"{AppName} 已卸载。\n\n配置文件：{configStatus}";
+    }
+
+    private static bool HasArgument(string[] args, string value) =>
+        args.Any(arg => string.Equals(arg, value, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsUninstallerProcess() =>
+        string.Equals(
+            Path.GetFileName(Environment.ProcessPath),
+            Path.GetFileName(UninstallerExe),
+            StringComparison.OrdinalIgnoreCase);
+
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
+    private sealed record DriverSearchResult(string Source, string Path);
+
+    private sealed record DriverComponentState(
+        string Status,
+        string? Source,
+        string? SourcePath,
+        string InstalledPath,
+        DateTimeOffset UpdatedUtc);
+
     private sealed record CommandResult(int ExitCode, string Output, string Error);
+
+    private enum InstalledAction
+    {
+        RepairOrUpdate,
+        Uninstall,
+        Cancel
+    }
 }

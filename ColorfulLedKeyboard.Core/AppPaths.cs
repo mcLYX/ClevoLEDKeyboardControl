@@ -11,6 +11,7 @@ public static class AppPaths
     public const string TypingPulseStateFileName = "typing-pulse.json";
     public const string NotificationFlashStateFileName = "notification-flash.json";
     public const string SpotifyAlbumColorStateFileName = "spotify-album-color.json";
+    public const string DriverComponentStateFileName = "driver-component.json";
 
     public static string ProgramDataDirectory =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), ProgramDataFolderName);
@@ -26,4 +27,6 @@ public static class AppPaths
     public static string NotificationFlashStatePath => Path.Combine(ProgramDataDirectory, NotificationFlashStateFileName);
 
     public static string SpotifyAlbumColorStatePath => Path.Combine(ProgramDataDirectory, SpotifyAlbumColorStateFileName);
+
+    public static string DriverComponentStatePath => Path.Combine(ProgramDataDirectory, DriverComponentStateFileName);
 }

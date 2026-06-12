@@ -7,24 +7,24 @@ namespace ColorfulLedKeyboard.Tray;
 
 public sealed class TrayApplicationContext : ApplicationContext
 {
+    private const int DefaultBreathingPeriodMs = EffectPresetSettings.DefaultPeriodMs;
     private readonly SettingsStore _settingsStore;
     private readonly UpdateChecker _updateChecker = new();
     private readonly TypingPulseHook _typingPulseHook = new();
     private readonly NotificationFlashMonitor _notificationFlashMonitor;
-    private readonly SpotifyAlbumColorUpdater _spotifyAlbumColorUpdater;
     private readonly NotifyIcon _notifyIcon;
     private readonly System.Windows.Forms.Timer _foregroundTimer = new() { Interval = 1000 };
     private string? _balloonReleaseUrl;
     private string? _lastForegroundProcess;
     private DateTimeOffset _lastForegroundStateSaved = DateTimeOffset.MinValue;
     private KeyboardSettings _settings;
+    private SettingsForm? _settingsForm;
 
-    public TrayApplicationContext(SettingsStore settingsStore)
+    public TrayApplicationContext(SettingsStore settingsStore, bool openSettingsOnStartup = false)
     {
         _settingsStore = settingsStore;
         _settings = _settingsStore.Load();
         _notificationFlashMonitor = new NotificationFlashMonitor(_settingsStore);
-        _spotifyAlbumColorUpdater = new SpotifyAlbumColorUpdater(_settingsStore);
 
         _notifyIcon = new NotifyIcon
         {
@@ -34,15 +34,19 @@ public sealed class TrayApplicationContext : ApplicationContext
             ContextMenuStrip = BuildMenu()
         };
 
-        _notifyIcon.DoubleClick += (_, _) => PickStaticColor();
+        _notifyIcon.DoubleClick += (_, _) => OpenSettings();
         _notifyIcon.BalloonTipClicked += (_, _) => OpenBalloonRelease();
         _foregroundTimer.Tick += (_, _) => UpdateForegroundAppState();
         _foregroundTimer.Start();
         _typingPulseHook.SetEnabled(_settings.TypingPulse.Enabled);
         _notificationFlashMonitor.SetEnabled(_settings.NotificationFlash.Enabled);
-        _spotifyAlbumColorUpdater.SetEnabled(_settings.Effect.Music.Spotify.AlbumColorEnabled);
         UpdateForegroundAppState();
         _ = CheckForUpdatesOnStartupAsync();
+
+        if (openSettingsOnStartup)
+        {
+            OpenSettingsAfterStartup();
+        }
     }
 
     protected override void Dispose(bool disposing)
@@ -55,7 +59,6 @@ public sealed class TrayApplicationContext : ApplicationContext
             _foregroundTimer.Dispose();
             _typingPulseHook.Dispose();
             _notificationFlashMonitor.Dispose();
-            _spotifyAlbumColorUpdater.Dispose();
         }
 
         base.Dispose(disposing);
@@ -68,7 +71,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         var enabled = new ToolStripMenuItem("启用灯效") { Checked = _settings.Enabled };
         enabled.Click += (_, _) =>
         {
-            if (TryUpdateSettings(settings => settings.Enabled = !settings.Enabled))
+            if (TryUpdateSettings(settings => settings.Enabled = !settings.Enabled, rememberCurrent: false))
             {
                 RefreshMenu();
             }
@@ -77,8 +80,6 @@ public sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(enabled);
         menu.Items.Add(BuildEffectMenu());
         menu.Items.Add(BuildBrightnessMenu());
-        menu.Items.Add(BuildSpeedMenu());
-        menu.Items.Add(BuildPresetMenu());
         menu.Items.Add(new ToolStripSeparator());
 
         var settingsItem = new ToolStripMenuItem("设置...");
@@ -86,7 +87,6 @@ public sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(settingsItem);
 
         menu.Items.Add(BuildServiceMenu());
-        menu.Items.Add(BuildExperimentalMenu());
 
         var update = new ToolStripMenuItem("检查更新");
         update.Click += async (_, _) => await CheckForUpdatesManuallyAsync();
@@ -109,66 +109,79 @@ public sealed class TrayApplicationContext : ApplicationContext
     {
         var effect = new ToolStripMenuItem("效果");
 
-        var staticColor = new ToolStripMenuItem($"固定颜色 {_settings.Effect.Color}")
-        {
-            Checked = _settings.Effect.Type == EffectType.Static
-        };
-        staticColor.Click += (_, _) => PickStaticColor();
+        AddEffectPresetMenu(effect, EffectType.Static, "固定颜色");
+        AddEffectPresetMenu(effect, EffectType.Rainbow, "RGB 循环");
+        AddEffectPresetMenu(effect, EffectType.Breathing, "单色呼吸");
+        AddEffectPresetMenu(effect, EffectType.Sequence, "循环呼吸");
+        AddEffectPresetMenu(effect, EffectType.Pulse, "脉冲");
+        AddEffectPresetMenu(effect, EffectType.Heartbeat, "心跳");
+        AddMusicPresetMenu(effect);
 
-        var rainbow = new ToolStripMenuItem("RGB 循环")
-        {
-            Checked = _settings.Effect.Type == EffectType.Rainbow
-        };
-        rainbow.Click += (_, _) => ApplyEffect(settings =>
-        {
-            settings.Enabled = true;
-            settings.Effect.Type = EffectType.Rainbow;
-            settings.Mode = KeyboardMode.Rainbow;
-        });
+        return effect;
+    }
 
-        var breathing = new ToolStripMenuItem("单色呼吸...")
-        {
-            Checked = _settings.Effect.Type == EffectType.Breathing
-        };
-        breathing.Click += (_, _) => PickBreathingColor();
-
-        var sequence = new ToolStripMenuItem("色彩序列")
-        {
-            Checked = _settings.Effect.Type == EffectType.Sequence
-        };
-        sequence.Click += (_, _) => ApplyEffect(LightingPresets.ApplyRedBluePulse);
-
-        var music = new ToolStripMenuItem("音乐模式")
+    private void AddMusicPresetMenu(ToolStripMenuItem parent)
+    {
+        var mode = new ToolStripMenuItem("音乐模式")
         {
             Checked = _settings.Effect.Type == EffectType.Music
         };
-        music.Click += (_, _) => ApplyEffect(settings =>
-        {
-            settings.Enabled = true;
-            settings.Effect.Type = EffectType.Music;
-            settings.Mode = KeyboardMode.Music;
-        });
 
-        var off = new ToolStripMenuItem("关闭灯效")
+        foreach (var preset in MusicSettings.BuiltInPresets.Concat(_settings.Effect.Music.CustomPresets))
         {
-            Checked = _settings.Effect.Type == EffectType.Off || !_settings.Enabled
+            var presetCopy = CloneMusicPreset(preset);
+            var item = new ToolStripMenuItem(presetCopy.Name)
+            {
+                Checked = _settings.Effect.Type == EffectType.Music &&
+                    string.Equals(_settings.Effect.Music.PresetName, presetCopy.Name, StringComparison.OrdinalIgnoreCase)
+            };
+            item.Click += (_, _) => ApplyEffect(settings =>
+            {
+                settings.Enabled = true;
+                settings.Effect.Type = EffectType.Music;
+                settings.Mode = KeyboardMode.Music;
+                settings.Effect.Music.ApplyPreset(presetCopy);
+            });
+            mode.DropDownItems.Add(item);
+        }
+
+        parent.DropDownItems.Add(mode);
+    }
+
+    private void AddEffectPresetMenu(ToolStripMenuItem parent, EffectType effectType, string label)
+    {
+        var mode = new ToolStripMenuItem(label)
+        {
+            Checked = _settings.Effect.Type == effectType
         };
-        off.Click += (_, _) => ApplyEffect(settings =>
+
+        var softwareDefault = new ToolStripMenuItem("软件默认配置");
+        softwareDefault.Click += (_, _) => ApplyEffect(settings =>
         {
             settings.Enabled = true;
-            settings.Effect.Type = EffectType.Off;
-            settings.Mode = KeyboardMode.Off;
+            ApplyEffectToSettings(settings, EffectPresetSettings.CreateSoftwareDefault(effectType));
         });
+        mode.DropDownItems.Add(softwareDefault);
 
-        effect.DropDownItems.Add(staticColor);
-        effect.DropDownItems.Add(rainbow);
-        effect.DropDownItems.Add(breathing);
-        effect.DropDownItems.Add(sequence);
-        effect.DropDownItems.Add(music);
-        effect.DropDownItems.Add(new ToolStripSeparator());
-        effect.DropDownItems.Add(off);
+        var presets = _settings.EffectPresets.ForType(effectType);
+        if (presets.Count > 0)
+        {
+            mode.DropDownItems.Add(new ToolStripSeparator());
+        }
 
-        return effect;
+        foreach (var preset in presets)
+        {
+            var presetCopy = KeyboardSettings.CloneEffectPreset(preset);
+            var item = new ToolStripMenuItem(presetCopy.Name);
+            item.Click += (_, _) => ApplyEffect(settings =>
+            {
+                settings.Enabled = true;
+                ApplyEffectToSettings(settings, presetCopy.Effect);
+            });
+            mode.DropDownItems.Add(item);
+        }
+
+        parent.DropDownItems.Add(mode);
     }
 
     private ToolStripMenuItem BuildBrightnessMenu()
@@ -197,29 +210,6 @@ public sealed class TrayApplicationContext : ApplicationContext
         return brightness;
     }
 
-    private ToolStripMenuItem BuildSpeedMenu()
-    {
-        var speed = new ToolStripMenuItem("速度");
-        AddSpeedItem(speed, "非常慢", 1, 160);
-        AddSpeedItem(speed, "慢", 1, 80);
-        AddSpeedItem(speed, "正常", 3, 40);
-        AddSpeedItem(speed, "快", 6, 30);
-        AddSpeedItem(speed, "很快", 10, 20);
-        return speed;
-    }
-
-    private ToolStripMenuItem BuildPresetMenu()
-    {
-        var preset = new ToolStripMenuItem("预设");
-        AddPreset(preset, "暖白", LightingPresets.ApplyWarmWhite);
-        AddPreset(preset, "自然白", LightingPresets.ApplyNeutralWhite);
-        AddPreset(preset, "冷白", LightingPresets.ApplyCoolWhite);
-        preset.DropDownItems.Add(new ToolStripSeparator());
-        AddPreset(preset, "红蓝呼吸", LightingPresets.ApplyRedBluePulse);
-        AddPreset(preset, "柔和彩虹", LightingPresets.ApplySoftRainbow);
-        return preset;
-    }
-
     private ToolStripMenuItem BuildServiceMenu()
     {
         var service = new ToolStripMenuItem("服务");
@@ -239,93 +229,35 @@ public sealed class TrayApplicationContext : ApplicationContext
         return service;
     }
 
-    private ToolStripMenuItem BuildExperimentalMenu()
-    {
-        var experimental = new ToolStripMenuItem("实验性功能");
-
-        var zoneTest = new ToolStripMenuItem("分区控制测试");
-        zoneTest.Click += (_, _) => RunZoneTest();
-
-        experimental.DropDownItems.Add(zoneTest);
-        return experimental;
-    }
-
-    private void AddSpeedItem(ToolStripMenuItem parent, string label, int step, int intervalMs)
-    {
-        var item = new ToolStripMenuItem(label)
-        {
-            Checked = _settings.Effect.Step == step && _settings.Effect.IntervalMs == intervalMs
-        };
-
-        item.Click += (_, _) => ApplyEffect(settings =>
-        {
-            settings.Enabled = true;
-            settings.Effect.Step = step;
-            settings.Effect.IntervalMs = intervalMs;
-        });
-
-        parent.DropDownItems.Add(item);
-    }
-
-    private void AddPreset(ToolStripMenuItem parent, string label, Action<KeyboardSettings> preset)
-    {
-        var item = new ToolStripMenuItem(label);
-        item.Click += (_, _) => ApplyEffect(preset);
-        parent.DropDownItems.Add(item);
-    }
-
-    private void PickStaticColor()
-    {
-        using var dialog = new ColorDialog
-        {
-            FullOpen = true,
-            Color = ColorTranslator.FromHtml(_settings.Effect.Color)
-        };
-
-        if (dialog.ShowDialog() != DialogResult.OK)
-        {
-            return;
-        }
-
-        ApplyEffect(settings =>
-        {
-            settings.Enabled = true;
-            settings.Effect.Type = EffectType.Static;
-            settings.Mode = KeyboardMode.Static;
-            settings.Effect.Color = ToHex(dialog.Color);
-        });
-    }
-
-    private void PickBreathingColor()
-    {
-        using var dialog = new ColorDialog
-        {
-            FullOpen = true,
-            Color = ColorTranslator.FromHtml(_settings.Effect.Color)
-        };
-
-        if (dialog.ShowDialog() != DialogResult.OK)
-        {
-            return;
-        }
-
-        ApplyEffect(settings =>
-        {
-            settings.Enabled = true;
-            settings.Effect.Type = EffectType.Breathing;
-            settings.Mode = KeyboardMode.Breathing;
-            settings.Effect.Color = ToHex(dialog.Color);
-            settings.Effect.PeriodMs = 2200;
-            settings.Effect.MinimumBrightness = 0;
-            settings.Effect.HardBlink = false;
-        });
-    }
-
     private void OpenSettings()
     {
-        using var form = new SettingsForm(_settingsStore);
-        form.ShowDialog();
-        RefreshMenu();
+        if (_settingsForm is { IsDisposed: false })
+        {
+            ActivateSettingsWindow(_settingsForm);
+            return;
+        }
+
+        _settingsForm = new SettingsForm(_settingsStore);
+        _settingsForm.SettingsSaved += (_, _) => RefreshMenu();
+        _settingsForm.FormClosed += (_, _) =>
+        {
+            _settingsForm = null;
+            RefreshMenu();
+        };
+        _settingsForm.Show();
+        ActivateSettingsWindow(_settingsForm);
+    }
+
+    private void OpenSettingsAfterStartup()
+    {
+        var timer = new System.Windows.Forms.Timer { Interval = 500 };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            timer.Dispose();
+            OpenSettings();
+        };
+        timer.Start();
     }
 
     private static void OpenAbout()
@@ -429,22 +361,27 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void ApplyEffect(Action<KeyboardSettings> update)
     {
-        if (TryUpdateSettings(update))
+        if (TryUpdateSettings(update, rememberCurrent: true))
         {
             RefreshMenu();
         }
     }
 
-    private bool TryUpdateSettings(Action<KeyboardSettings> update)
+    private bool TryUpdateSettings(Action<KeyboardSettings> update, bool rememberCurrent)
     {
         try
         {
             _settings = _settingsStore.Load();
+            if (rememberCurrent)
+            {
+                RememberCurrentEffect(_settings);
+            }
+
             update(_settings);
             _settingsStore.Save(_settings);
             _typingPulseHook.SetEnabled(_settings.TypingPulse.Enabled);
             _notificationFlashMonitor.SetEnabled(_settings.NotificationFlash.Enabled);
-            _spotifyAlbumColorUpdater.SetEnabled(_settings.Effect.Music.Spotify.AlbumColorEnabled);
+            _settingsForm?.ReloadFromStore();
             return true;
         }
         catch (UnauthorizedAccessException)
@@ -468,10 +405,137 @@ public sealed class TrayApplicationContext : ApplicationContext
         _settings = _settingsStore.Load();
         _typingPulseHook.SetEnabled(_settings.TypingPulse.Enabled);
         _notificationFlashMonitor.SetEnabled(_settings.NotificationFlash.Enabled);
-        _spotifyAlbumColorUpdater.SetEnabled(_settings.Effect.Music.Spotify.AlbumColorEnabled);
         var oldMenu = _notifyIcon.ContextMenuStrip;
         _notifyIcon.ContextMenuStrip = BuildMenu();
         oldMenu?.Dispose();
+    }
+
+    private static void ActivateSettingsWindow(Form form)
+    {
+        if (form.WindowState == FormWindowState.Minimized)
+        {
+            form.WindowState = FormWindowState.Normal;
+        }
+
+        form.Show();
+        form.Activate();
+        form.BringToFront();
+        form.TopMost = true;
+        form.TopMost = false;
+    }
+
+    private static void RememberCurrentEffect(KeyboardSettings settings)
+    {
+        settings.SavedEffects ??= new EffectMemorySettings();
+        var copy = KeyboardSettings.CloneEffect(settings.Effect);
+        copy.Normalize();
+
+        switch (copy.Type)
+        {
+            case EffectType.Static:
+                settings.SavedEffects.Static = copy;
+                break;
+            case EffectType.Rainbow:
+                copy.CustomSequenceColorsEnabled = true;
+                settings.SavedEffects.Rainbow = copy;
+                break;
+            case EffectType.Breathing:
+                settings.SavedEffects.Breathing = copy;
+                break;
+            case EffectType.Sequence:
+                settings.SavedEffects.Sequence = copy;
+                break;
+            case EffectType.Pulse:
+                settings.SavedEffects.Pulse = copy;
+                break;
+            case EffectType.Heartbeat:
+                settings.SavedEffects.Heartbeat = copy;
+                break;
+        }
+
+        settings.SavedEffects.Normalize();
+    }
+
+    private static void RestoreSavedEffect(KeyboardSettings settings, EffectType effect)
+    {
+        settings.SavedEffects ??= new EffectMemorySettings();
+        settings.SavedEffects.Normalize();
+        settings.Effect = effect switch
+        {
+            EffectType.Static => KeyboardSettings.CloneEffect(settings.SavedEffects.Static),
+            EffectType.Rainbow => KeyboardSettings.CloneEffect(settings.SavedEffects.Rainbow),
+            EffectType.Breathing => KeyboardSettings.CloneEffect(settings.SavedEffects.Breathing),
+            EffectType.Sequence => KeyboardSettings.CloneEffect(settings.SavedEffects.Sequence),
+            EffectType.Pulse => KeyboardSettings.CloneEffect(settings.SavedEffects.Pulse),
+            EffectType.Heartbeat => KeyboardSettings.CloneEffect(settings.SavedEffects.Heartbeat),
+            _ => KeyboardSettings.CloneEffect(settings.Effect)
+        };
+        settings.Effect.Type = effect;
+        if (effect == EffectType.Rainbow)
+        {
+            settings.Effect.CustomSequenceColorsEnabled = true;
+        }
+
+        settings.Mode = effect switch
+        {
+            EffectType.Static => KeyboardMode.Static,
+            EffectType.Rainbow => KeyboardMode.Rainbow,
+            EffectType.Breathing => KeyboardMode.Breathing,
+            EffectType.Sequence => KeyboardMode.Sequence,
+            EffectType.Pulse => KeyboardMode.Pulse,
+            EffectType.Heartbeat => KeyboardMode.Heartbeat,
+            EffectType.Music => KeyboardMode.Music,
+            EffectType.Off => KeyboardMode.Off,
+            _ => settings.Mode
+        };
+    }
+
+    private static void ApplyEffectToSettings(KeyboardSettings settings, LightingEffectSettings effect)
+    {
+        settings.Effect = KeyboardSettings.CloneEffect(effect);
+        settings.Effect.Normalize();
+        if (settings.Effect.Type == EffectType.Rainbow)
+        {
+            settings.Effect.CustomSequenceColorsEnabled = true;
+        }
+
+        settings.Mode = settings.Effect.Type switch
+        {
+            EffectType.Static => KeyboardMode.Static,
+            EffectType.Rainbow => KeyboardMode.Rainbow,
+            EffectType.Breathing => KeyboardMode.Breathing,
+            EffectType.Sequence => KeyboardMode.Sequence,
+            EffectType.Pulse => KeyboardMode.Pulse,
+            EffectType.Heartbeat => KeyboardMode.Heartbeat,
+            EffectType.Music => KeyboardMode.Music,
+            EffectType.Off => KeyboardMode.Off,
+            _ => settings.Mode
+        };
+    }
+
+    private static MusicPreset CloneMusicPreset(MusicPreset preset)
+    {
+        return new MusicPreset
+        {
+            Name = preset.Name,
+            ResponseMode = preset.ResponseMode,
+            LowColor = preset.LowColor,
+            HighColor = preset.HighColor,
+            Colors = [.. preset.Colors],
+            Sensitivity = preset.Sensitivity,
+            AttackMs = preset.AttackMs,
+            ReleaseMs = preset.ReleaseMs,
+            BaseBrightness = preset.BaseBrightness,
+            PeakBrightness = preset.PeakBrightness,
+            IntervalMs = preset.IntervalMs,
+            NoiseGate = preset.NoiseGate,
+            BeatThreshold = preset.BeatThreshold,
+            PeakHoldMs = preset.PeakHoldMs,
+            FollowSystemVolume = preset.FollowSystemVolume,
+            EqEnabled = preset.EqEnabled,
+            EqLowHz = preset.EqLowHz,
+            EqHighHz = preset.EqHighHz
+        }.Normalize();
     }
 
     private static void RestartService()
@@ -533,43 +597,6 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private static void RunZoneTest()
-    {
-        var exe = Path.Combine(
-            AppContext.BaseDirectory,
-            "..",
-            "Experimental",
-            "ColorfulLedKeyboard.ZoneTest.exe");
-        exe = Path.GetFullPath(exe);
-
-        if (!File.Exists(exe))
-        {
-            MessageBox.Show(
-                $"找不到实验性工具：{exe}",
-                "ClevoLEDKeyboardControl",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            return;
-        }
-
-        try
-        {
-            Process.Start(new ProcessStartInfo(exe)
-            {
-                UseShellExecute = true,
-                WorkingDirectory = Path.GetDirectoryName(exe)
-            });
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                $"无法启动分区控制测试：{ex.Message}",
-                "ClevoLEDKeyboardControl",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-        }
-    }
-
     private static void ShowSettingsAccessError()
     {
         MessageBox.Show(
@@ -579,5 +606,4 @@ public sealed class TrayApplicationContext : ApplicationContext
             MessageBoxIcon.Warning);
     }
 
-    private static string ToHex(Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 }

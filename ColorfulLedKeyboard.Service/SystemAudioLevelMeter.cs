@@ -22,6 +22,25 @@ internal sealed class SystemAudioLevelMeter : IDisposable
         }
     }
 
+    public float GetMasterVolumeScalar()
+    {
+        try
+        {
+            EnsureDevice();
+            if (_device?.AudioEndpointVolume.Mute == true)
+            {
+                return 0f;
+            }
+
+            return _device?.AudioEndpointVolume.MasterVolumeLevelScalar ?? 1f;
+        }
+        catch
+        {
+            ResetDevice();
+            return 1f;
+        }
+    }
+
     public void Dispose()
     {
         ResetDevice();

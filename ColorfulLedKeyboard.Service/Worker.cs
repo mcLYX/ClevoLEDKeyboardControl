@@ -30,6 +30,7 @@ public class Worker : BackgroundService
 
             if (!settings.Enabled)
             {
+                TryTurnOffKeyboard();
                 await WaitForSettingsChangeAsync(1000, stoppingToken);
                 continue;
             }
@@ -62,6 +63,18 @@ public class Worker : BackgroundService
         _audioLevelMeter.Dispose();
         _audioBandLevelMeter.Dispose();
         return base.StopAsync(cancellationToken);
+    }
+
+    private void TryTurnOffKeyboard()
+    {
+        try
+        {
+            _device.SetAllZones(RgbColor.Black);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or SEHException)
+        {
+            _logger.LogWarning(ex, "Keyboard LEDs could not be turned off.");
+        }
     }
 
     private async Task RunEffectAsync(KeyboardSettings settings, CancellationToken stoppingToken)
@@ -124,10 +137,8 @@ public class Worker : BackgroundService
     private async Task RunMusicAsync(KeyboardSettings settings, CancellationToken stoppingToken)
     {
         var music = settings.Effect.Music.Normalize();
-        var controller = new MusicBrightnessController();
-        var baseColor = ResolveMusicBaseColor(settings);
-        var lowColor = RgbColor.FromHex(music.LowColor);
-        var highColor = RgbColor.FromHex(music.HighColor);
+        var controller = new MusicPulseController();
+        var musicColors = music.Colors.Select(RgbColor.FromHex).ToList();
         var nextRuntimeRefresh = DateTimeOffset.UtcNow.AddSeconds(1);
         RgbColor? lastColor = null;
 
@@ -146,20 +157,13 @@ public class Worker : BackgroundService
             var level = music.EqEnabled
                 ? Math.Max(_audioBandLevelMeter.GetAdaptiveBeatLevel(music), _audioLevelMeter.GetPeakLevel() * 0.12f)
                 : _audioLevelMeter.GetPeakLevel();
-            var envelope = controller.NextEnvelope(music, level);
+            var systemVolume = _audioLevelMeter.GetMasterVolumeScalar();
+            var frame = controller.Next(music, level, systemVolume, musicColors.Count);
+            var envelope = frame.Envelope;
             var musicBrightness = music.BaseBrightness +
-                (music.PeakBrightness - music.BaseBrightness) * Math.Pow(envelope, 0.65);
+                (music.PeakBrightness - music.BaseBrightness) * Math.Pow(envelope, 0.55);
             var brightness = (int)Math.Clamp(Math.Round(musicBrightness), music.BaseBrightness, music.PeakBrightness);
-            var responseMode = music.ResponseMode;
-            if (music.Spotify.AlbumColorEnabled && TryGetSpotifyAlbumColor(out var albumColor))
-            {
-                responseMode = MusicResponseMode.BrightnessPulse;
-                baseColor = albumColor;
-            }
-
-            var sourceColor = responseMode == MusicResponseMode.LevelColor
-                ? RgbColor.Lerp(lowColor, highColor, envelope)
-                : baseColor;
+            var sourceColor = musicColors[frame.ColorIndex % musicColors.Count];
             var color = ApplyNotificationFlash(sourceColor.Scale(brightness), settings);
 
             if (color != lastColor)
@@ -170,29 +174,6 @@ public class Worker : BackgroundService
 
             await Task.Delay(music.IntervalMs, stoppingToken);
         }
-    }
-
-    private static RgbColor ResolveMusicBaseColor(KeyboardSettings settings)
-    {
-        if (settings.Effect.Type is EffectType.Static or EffectType.Breathing or EffectType.Music)
-        {
-            return RgbColor.FromHex(settings.Effect.Color);
-        }
-
-        return RgbColor.FromHex(settings.StaticColor);
-    }
-
-    private static bool TryGetSpotifyAlbumColor(out RgbColor color)
-    {
-        color = RgbColor.FromHex("#FFFFFF");
-        var state = SpotifyAlbumColorState.Load();
-        if (state is null || DateTimeOffset.UtcNow - state.UpdatedUtc > TimeSpan.FromMinutes(10))
-        {
-            return false;
-        }
-
-        color = RgbColor.FromHex(state.Color);
-        return true;
     }
 
     private static RgbColor ApplyNotificationFlash(RgbColor color, KeyboardSettings settings)
@@ -273,6 +254,7 @@ public class Worker : BackgroundService
             next.Effect.PeriodMs != current.Effect.PeriodMs ||
             next.Effect.MinimumBrightness != current.Effect.MinimumBrightness ||
             next.Effect.HardBlink != current.Effect.HardBlink ||
+            next.Effect.CustomSequenceColorsEnabled != current.Effect.CustomSequenceColorsEnabled ||
             !MusicEquals(next.Effect.Music, current.Effect.Music) ||
             next.Effect.Sequence.Count != current.Effect.Sequence.Count ||
             next.Effect.Sequence.Zip(current.Effect.Sequence).Any(pair =>
@@ -305,6 +287,8 @@ public class Worker : BackgroundService
             left.ResponseMode == right.ResponseMode &&
             left.LowColor == right.LowColor &&
             left.HighColor == right.HighColor &&
+            left.Colors.Count == right.Colors.Count &&
+            left.Colors.SequenceEqual(right.Colors, StringComparer.OrdinalIgnoreCase) &&
             Math.Abs(left.Sensitivity - right.Sensitivity) < 0.001 &&
             left.AttackMs == right.AttackMs &&
             left.ReleaseMs == right.ReleaseMs &&
@@ -314,13 +298,10 @@ public class Worker : BackgroundService
             Math.Abs(left.NoiseGate - right.NoiseGate) < 0.001 &&
             Math.Abs(left.BeatThreshold - right.BeatThreshold) < 0.001 &&
             left.PeakHoldMs == right.PeakHoldMs &&
+            left.FollowSystemVolume == right.FollowSystemVolume &&
             left.EqEnabled == right.EqEnabled &&
             left.EqLowHz == right.EqLowHz &&
             left.EqHighHz == right.EqHighHz &&
-            left.Spotify.AlbumColorEnabled == right.Spotify.AlbumColorEnabled &&
-            left.Spotify.AlbumColorSource == right.Spotify.AlbumColorSource &&
-            left.Spotify.ClientId == right.Spotify.ClientId &&
-            left.Spotify.RefreshToken == right.Spotify.RefreshToken &&
             left.CustomPresets.Count == right.CustomPresets.Count &&
             left.CustomPresets.Zip(right.CustomPresets).All(pair => MusicPresetEquals(pair.First, pair.Second));
     }
@@ -331,6 +312,8 @@ public class Worker : BackgroundService
             left.ResponseMode == right.ResponseMode &&
             left.LowColor == right.LowColor &&
             left.HighColor == right.HighColor &&
+            left.Colors.Count == right.Colors.Count &&
+            left.Colors.SequenceEqual(right.Colors, StringComparer.OrdinalIgnoreCase) &&
             Math.Abs(left.Sensitivity - right.Sensitivity) < 0.001 &&
             left.AttackMs == right.AttackMs &&
             left.ReleaseMs == right.ReleaseMs &&
@@ -340,6 +323,7 @@ public class Worker : BackgroundService
             Math.Abs(left.NoiseGate - right.NoiseGate) < 0.001 &&
             Math.Abs(left.BeatThreshold - right.BeatThreshold) < 0.001 &&
             left.PeakHoldMs == right.PeakHoldMs &&
+            left.FollowSystemVolume == right.FollowSystemVolume &&
             left.EqEnabled == right.EqEnabled &&
             left.EqLowHz == right.EqLowHz &&
             left.EqHighHz == right.EqHighHz;
@@ -456,8 +440,7 @@ public class Worker : BackgroundService
     private void MarkSettingsChanged(string? fileName)
     {
         if (string.Equals(fileName, AppPaths.SettingsFileName, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(fileName, AppPaths.NotificationFlashStateFileName, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(fileName, AppPaths.ForegroundAppStateFileName, StringComparison.OrdinalIgnoreCase))
+            string.Equals(fileName, AppPaths.NotificationFlashStateFileName, StringComparison.OrdinalIgnoreCase))
         {
             _settingsChanged = true;
         }
