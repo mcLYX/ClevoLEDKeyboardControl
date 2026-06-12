@@ -84,4 +84,66 @@ public sealed class KeyboardSettingsMigrationTests
 
         Assert.Equal(EffectType.Static, settings.AppProfiles.Rules[0].TargetEffect);
     }
+
+    [Fact]
+    public void Normalize_LastUsedLightingEffectOff_FallsBackToStatic()
+    {
+        var settings = new KeyboardSettings
+        {
+            SavedEffects = new EffectMemorySettings
+            {
+                LastUsedLightingEffect = EffectType.Off
+            }
+        };
+        settings.Normalize();
+
+        Assert.Equal(EffectType.Static, settings.SavedEffects.LastUsedLightingEffect);
+    }
+
+    [Fact]
+    public void Normalize_LastUsedLightingEffectInvalidValue_FallsBackToStatic()
+    {
+        var settings = new KeyboardSettings
+        {
+            SavedEffects = new EffectMemorySettings
+            {
+                LastUsedLightingEffect = (EffectType)5
+            }
+        };
+        settings.Normalize();
+
+        Assert.Equal(EffectType.Static, settings.SavedEffects.LastUsedLightingEffect);
+    }
+
+    [Fact]
+    public void Normalize_UnknownEffectTypeOtherThanFive_DoesNotForceMusicMode()
+    {
+        var settings = new KeyboardSettings
+        {
+            Effect = new LightingEffectSettings { Type = (EffectType)99 }
+        };
+        settings.Normalize(migrateLegacyMode: true);
+
+        Assert.Equal(OperatingMode.Lighting, settings.OperatingMode);
+        Assert.Equal(EffectType.Static, settings.Effect.Type);
+    }
+
+    [Fact]
+    public void CloneForRuntime_PreservesOperatingModeAndLastUsedLightingEffect()
+    {
+        var settings = new KeyboardSettings
+        {
+            OperatingMode = OperatingMode.Music,
+            SavedEffects = new EffectMemorySettings
+            {
+                LastUsedLightingEffect = EffectType.Heartbeat
+            }
+        };
+        settings.Normalize();
+
+        var clone = settings.CloneForRuntime();
+
+        Assert.Equal(OperatingMode.Music, clone.OperatingMode);
+        Assert.Equal(EffectType.Heartbeat, clone.SavedEffects.LastUsedLightingEffect);
+    }
 }

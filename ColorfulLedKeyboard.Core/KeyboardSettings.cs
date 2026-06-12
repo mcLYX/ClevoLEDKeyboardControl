@@ -75,12 +75,19 @@ public sealed class KeyboardSettings
             };
         }
 
-        // 验证 Effect.Type 是有效枚举值（旧版本可能保存了 Music=5，现在已不存在）。
-        // 如果命中说明这是一份旧配置，需要把灯效降回 Static，并把顶层模式切到 Music。
-        if (!Enum.IsDefined(Effect.Type))
+        // 旧版本可能保存了 EffectType.Music = 5（已删除）；
+        // 这里精确识别值 5 把灯效降回 Static，并把顶层模式切到 Music，保留用户"在音乐模式"的语义。
+        // 注意：旧 JSON 中 "Effect.Type": "Music" 字符串由 SettingsStore 预扫描负责（Task 6），
+        // 此处仅兜底\"反序列化得到整数 5\" 这条路径。
+        if ((int)Effect.Type == 5)
         {
             Effect.Type = EffectType.Static;
             OperatingMode = OperatingMode.Music;
+        }
+        else if (!Enum.IsDefined(Effect.Type))
+        {
+            // 其他未知值（未来扩展或被破坏的数据）仅静默回退灯效，不动 OperatingMode。
+            Effect.Type = EffectType.Static;
         }
 
         if (migrateLegacyMode &&
