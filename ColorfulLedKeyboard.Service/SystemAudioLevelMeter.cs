@@ -14,7 +14,10 @@ internal sealed class SystemAudioLevelMeter : IDisposable
 
     public float GetPeakLevel()
     {
-        if (_source.Status != AudioSourceStatus.Active) return 0f;
+        // HFP（通话端点）必须屏蔽，否则会激活 SCO 链路影响通话音质。
+        // Active / Switching / Unavailable 都尝试读 —— 读到非零会通过 ReportSamples
+        // 让 Provider 把 Unavailable 自动切回 Active（v1.3 行为）。
+        if (_source.Status == AudioSourceStatus.Hfp) return 0f;
         var device = _source.CurrentDevice;
         if (device is null) return 0f;
 
@@ -33,7 +36,7 @@ internal sealed class SystemAudioLevelMeter : IDisposable
 
     public float GetMasterVolumeScalar()
     {
-        if (_source.Status != AudioSourceStatus.Active) return 1f;
+        if (_source.Status == AudioSourceStatus.Hfp) return 1f;
         var device = _source.CurrentDevice;
         if (device is null) return 1f;
 

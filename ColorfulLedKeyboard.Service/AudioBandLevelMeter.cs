@@ -11,8 +11,8 @@ internal sealed class AudioBandLevelMeter : IDisposable
         new(70, 140, 1.15),
         new(140, 280, 1.00),
         new(280, 700, 0.95),
-        new(700, 2500, 0.85),
-        new(2500, 8000, 0.75)
+        new(700, 2500, 0.95),
+        new(2500, 8000, 0.85)
     ];
 
     private readonly object _sync = new();
@@ -169,7 +169,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
         var noiseTimeConstant = fused < _adaptiveNoise ? 0.12 : 1.8;
         _adaptiveNoise = Smooth(_adaptiveNoise, fused, dt, noiseTimeConstant);
 
-        var openThreshold = Math.Clamp(_adaptiveNoise + settings.NoiseGate * 0.55 + settings.BeatThreshold * 0.14, 0.015, 0.75);
+        var openThreshold = Math.Clamp(_adaptiveNoise + settings.NoiseGate * 0.45 + settings.BeatThreshold * 0.10, 0.012, 0.55);
         var closeThreshold = Math.Max(0.01, openThreshold * 0.68);
         if (!_gateOpen && fused < openThreshold)
         {
@@ -199,23 +199,20 @@ internal sealed class AudioBandLevelMeter : IDisposable
         if (_capture is not null) return;
 
         // HFP 屏蔽：通话端点不开 capture，避免激活 SCO 链路影响通话音质。
-        // Status==Hfp 时直接返回；Active / Switching / Unavailable 都尝试开。
         if (_source.Status == AudioSourceStatus.Hfp) return;
 
         // 仅在"上一次构造抛异常"后短暂节流 1 秒，避免设备真坏时每帧重试。
-        // 正常的暂停/恢复路径不会触发这个分支：RecordingStopped → ResetCapture
-        // 不会设置 _ensureCooldownUntil，下一帧立刻重建。
         if (_ensureCooldownUntil != DateTimeOffset.MinValue && DateTimeOffset.UtcNow < _ensureCooldownUntil)
         {
             return;
         }
 
-        var device = _source.CurrentDevice;
-        if (device is null) return;
-
         try
         {
-            _capture = new WasapiLoopbackCapture(device);
+            // 关键：无参构造（沿用 v1.3 行为）。NAudio 自己拿当前默认 render 设备 +
+            // 自己管理"暂停 → 重新激活"的内部状态，传 MMDevice 那条路径在系统无
+            // active session 时重建会进僵尸态（start 成功但 DataAvailable 永不触发）。
+            _capture = new WasapiLoopbackCapture();
             _sampleRate = _capture.WaveFormat.SampleRate;
             _capture.DataAvailable += OnDataAvailable;
             _capture.RecordingStopped += (_, _) => ResetCapture();
@@ -235,6 +232,27 @@ internal sealed class AudioBandLevelMeter : IDisposable
         _capture = null;
         _lastCaptureResetAt = DateTimeOffset.UtcNow;
 
+        // 清空残留的 PCM 缓存与 envelope/hold 状态，否则 capture 销毁后这一帧
+        // 还会被 GetAdaptiveBeatLevel 读到，灯锁在最后一刻的拍点高峰色不衰减。
+        lock (_sync)
+        {
+            _samples = [];
+        }
+        _outputEnvelope = 0;
+        _heldOutput = 0;
+        _holdUntil = DateTimeOffset.MinValue;
+        _lastBeatAt = DateTimeOffset.MinValue;
+        _lastAdaptiveUpdate = DateTimeOffset.MinValue;
+        _gateOpen = false;
+        foreach (var state in _bandStates)
+        {
+            state.Short = 0;
+            state.Long = 0;
+            state.Noise = 0;
+            state.Weight = 0;
+            state.TargetWeight = 0;
+        }
+
         if (capture is null)
         {
             return;
@@ -250,7 +268,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
         }
         finally
         {
-            capture.Dispose();
+            try { capture.Dispose(); } catch { }
         }
     }
 
@@ -341,9 +359,9 @@ internal sealed class AudioBandLevelMeter : IDisposable
 
     private float FollowOutput(double target, MusicSettings settings, double dt, DateTimeOffset now)
     {
-        var beatThreshold = Math.Clamp(0.20 + settings.BeatThreshold * 0.45, 0.10, 0.60);
-        var minCooldownMs = Math.Clamp(settings.AttackMs * 1.2 + 20, 28, 110);
-        var adaptiveCooldownMs = Math.Clamp(_beatIntervalMs * 0.48, minCooldownMs, 165);
+        var beatThreshold = Math.Clamp(0.18 + settings.BeatThreshold * 0.40, 0.08, 0.55);
+        var minCooldownMs = Math.Clamp(settings.AttackMs * 0.8 + 10, 18, 70);
+        var adaptiveCooldownMs = Math.Clamp(_beatIntervalMs * 0.35, minCooldownMs, 100);
         var canTrigger = now - _lastBeatAt > TimeSpan.FromMilliseconds(adaptiveCooldownMs);
 
         if (target >= beatThreshold && canTrigger)
@@ -351,7 +369,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
             if (_lastBeatAt != DateTimeOffset.MinValue)
             {
                 var interval = (now - _lastBeatAt).TotalMilliseconds;
-                if (interval is >= 90 and <= 1200)
+                if (interval is >= 70 and <= 1200)
                 {
                     _beatIntervalMs = Smooth(_beatIntervalMs, interval, 0.2, 0.65);
                 }
@@ -371,8 +389,8 @@ internal sealed class AudioBandLevelMeter : IDisposable
             _heldOutput = Math.Max(0, _heldOutput - dt * 5.0);
         }
 
-        var attackSeconds = Math.Clamp(settings.AttackMs / 1000d * 0.22, 0.002, 0.035);
-        var releaseSeconds = Math.Clamp(settings.ReleaseMs / 1000d * 0.48, 0.025, 0.24);
+        var attackSeconds = Math.Clamp(settings.AttackMs / 1000d * 0.18, 0.0015, 0.025);
+        var releaseSeconds = Math.Clamp(settings.ReleaseMs / 1000d * 0.35, 0.018, 0.16);
         _outputEnvelope = Smooth(_outputEnvelope, target, dt, target > _outputEnvelope ? attackSeconds : releaseSeconds);
         if (_outputEnvelope < 0.015)
         {
