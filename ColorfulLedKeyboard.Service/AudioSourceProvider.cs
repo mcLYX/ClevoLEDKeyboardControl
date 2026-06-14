@@ -45,6 +45,12 @@ public sealed class AudioSourceProvider : IDisposable
         _lastSampleTicks = 0;
         _virtualNowTicks = 0;
 
+        // 真实部署：把 NAudio 默认设备变化回调 wire 到 OnDefaultDeviceChangedInternal
+        if (ownsProbe && probe is MMDeviceProbe mmProbe)
+        {
+            mmProbe.SetCallback(OnDefaultDeviceChangedInternal);
+        }
+
         // 真实部署时启用周期 timer；测试构造（ownsProbe=false）依赖 TestOnly_AdvanceFallbackClock 推动
         if (ownsProbe)
         {
