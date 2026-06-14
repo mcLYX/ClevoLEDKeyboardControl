@@ -2114,14 +2114,10 @@ public sealed class SettingsForm : Form
             return;
         }
 
-        _audioSourceLabel.Text = info?.Status switch
-        {
-            AudioSourceStatus.Active      => $"当前音频源：{info.DeviceFriendlyName}",
-            AudioSourceStatus.Hfp         => $"当前音频源：{info.DeviceFriendlyName}（通话中，已暂停）",
-            AudioSourceStatus.Switching   => "当前音频源：切换中…",
-            AudioSourceStatus.Unavailable => "当前音频源：不可用",
-            _                             => "当前音频源：检测中…",
-        };
+        var deviceName = info?.DeviceFriendlyName ?? "";
+        _audioSourceLabel.Text = string.IsNullOrEmpty(deviceName)
+            ? "当前音频源：检测中…"
+            : $"当前音频源：{deviceName}";
     }
 }
 

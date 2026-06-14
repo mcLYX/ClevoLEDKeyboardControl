@@ -449,14 +449,10 @@ public sealed class TrayApplicationContext : ApplicationContext
         else
         {
             var info = _lastAudioStatus;
-            text = info?.Status switch
-            {
-                AudioSourceStatus.Active      => $"ClevoLEDKeyboardControl\n音乐：{info.DeviceFriendlyName}",
-                AudioSourceStatus.Hfp         => "ClevoLEDKeyboardControl\n音乐：通话中，已暂停",
-                AudioSourceStatus.Switching   => "ClevoLEDKeyboardControl\n音乐：切换音频源中…",
-                AudioSourceStatus.Unavailable => "ClevoLEDKeyboardControl\n音乐：无可用音频源",
-                _                             => "ClevoLEDKeyboardControl\n音乐：等待状态…",
-            };
+            var deviceName = info?.DeviceFriendlyName ?? "";
+            text = string.IsNullOrEmpty(deviceName)
+                ? "ClevoLEDKeyboardControl\n音乐：检测中…"
+                : $"ClevoLEDKeyboardControl\n音乐：{deviceName}";
         }
 
         if (text.Length > 120) text = text[..120] + "…";

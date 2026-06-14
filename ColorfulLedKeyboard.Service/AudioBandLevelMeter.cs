@@ -19,6 +19,8 @@ internal sealed class AudioBandLevelMeter : IDisposable
     private readonly BandState[] _bandStates = AdaptiveBands.Select(_ => new BandState()).ToArray();
     private readonly AudioSourceProvider _source;
     private string _lastKnownDeviceId = "";
+    private DateTimeOffset _lastCaptureResetAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastEnsureAttemptAt = DateTimeOffset.MinValue;
     private WasapiLoopbackCapture? _capture;
     private float[] _samples = [];
     private int _sampleRate = 48000;
@@ -43,8 +45,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
         // 只在两种情况下重建 capture：
         //   1. device id 真变了（切换音频源）
         //   2. 进入 Hfp 状态（避免在 16kHz/Mono 端点上抓 loopback）
-        // 同设备的 Active↔Unavailable 状态切换（如停音乐 1.5s 后 fallback 把 Status 切到
-        // Unavailable）不要停 capture，否则恢复时永远拿不到样本，永久卡 Unavailable。
+        // 同设备的 Active↔Unavailable 状态切换不要停 capture，否则恢复时永远拿不到样本。
         var prevId = _lastKnownDeviceId;
         var newId = e.DeviceId ?? "";
         var deviceChanged = !string.Equals(prevId, newId, StringComparison.Ordinal);
@@ -52,12 +53,13 @@ internal sealed class AudioBandLevelMeter : IDisposable
 
         if (!deviceChanged && e.Status != AudioSourceStatus.Hfp)
         {
-            // 同设备状态机内部翻转，不动 capture
             return;
         }
 
+        // 设备真变了：清空节流时间戳，让重建路径立刻可用
+        _lastEnsureAttemptAt = DateTimeOffset.MinValue;
+
         // ResetCapture 会调用 NAudio 的 StopRecording，必须脱离 COM 回调线程
-        // 否则在 IMMNotificationClient 回调链路上同步停 capture 会死锁
         System.Threading.ThreadPool.QueueUserWorkItem(_ => ResetCapture());
     }
 
@@ -195,7 +197,18 @@ internal sealed class AudioBandLevelMeter : IDisposable
     private void EnsureCapture()
     {
         if (_capture is not null) return;
-        if (_source.Status != AudioSourceStatus.Active) return;
+
+        // HFP 屏蔽：通话端点不开 capture，避免激活 SCO 链路影响通话音质。
+        // Status==Hfp 时直接返回；Active / Switching / Unavailable 都尝试开。
+        if (_source.Status == AudioSourceStatus.Hfp) return;
+
+        // 5 秒节流：避免每帧都重试导致 NAudio 抖动；上次 reset / 上次尝试 5 秒内不重试。
+        var now = DateTimeOffset.UtcNow;
+        if (_lastEnsureAttemptAt != DateTimeOffset.MinValue && (now - _lastEnsureAttemptAt).TotalSeconds < 5)
+        {
+            return;
+        }
+        _lastEnsureAttemptAt = now;
 
         var device = _source.CurrentDevice;
         if (device is null) return;
@@ -218,6 +231,8 @@ internal sealed class AudioBandLevelMeter : IDisposable
     {
         var capture = _capture;
         _capture = null;
+        _lastCaptureResetAt = DateTimeOffset.UtcNow;
+
         if (capture is null)
         {
             return;

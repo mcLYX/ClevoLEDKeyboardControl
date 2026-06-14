@@ -179,31 +179,19 @@ public class Worker : BackgroundService
                     }
                 }
 
-                RgbColor color;
-                if (_audioSource.Status == AudioSourceStatus.Hfp)
-                {
-                    // HFP/通话端点：完全不调 meter（避免激活 SCO），灯压到 BaseBrightness 底色
-                    var fallbackColor = musicColors.Count > 0 ? musicColors[0] : RgbColor.Black;
-                    var brightness = Math.Clamp(music.BaseBrightness, 0, 100);
-                    color = ApplyNotificationFlash(fallbackColor.Scale(brightness), settings);
-                }
-                else
-                {
-                    // Active / Switching / Unavailable：正常调 meter。
-                    // 静音时 PCM 全 0 → envelope=0 → 灯自然降到 BaseBrightness（v1.3 行为）。
-                    // capture 未就绪（如设备刚切换还没 ready）时返回 0，行为一致。
-                    var level = music.EqEnabled
-                        ? Math.Max(_audioBandLevelMeter.GetAdaptiveBeatLevel(music), _audioLevelMeter.GetPeakLevel() * 0.12f)
-                        : _audioLevelMeter.GetPeakLevel();
-                    var systemVolume = _audioLevelMeter.GetMasterVolumeScalar();
-                    var frame = controller.Next(music, level, systemVolume, musicColors.Count);
-                    var envelope = frame.Envelope;
-                    var musicBrightness = music.BaseBrightness +
-                        (music.PeakBrightness - music.BaseBrightness) * Math.Pow(envelope, 0.55);
-                    var brightness = (int)Math.Clamp(Math.Round(musicBrightness), music.BaseBrightness, music.PeakBrightness);
-                    var sourceColor = musicColors[frame.ColorIndex % musicColors.Count];
-                    color = ApplyNotificationFlash(sourceColor.Scale(brightness), settings);
-                }
+                // 永远调 meter（同 v1.3）：静音 → envelope=0 → 灯自然降到 BaseBrightness 颜色保持。
+                // HFP 屏蔽在 meter 内部处理（Status==Hfp 时 EnsureCapture 跳过、不激活 SCO）。
+                var level = music.EqEnabled
+                    ? Math.Max(_audioBandLevelMeter.GetAdaptiveBeatLevel(music), _audioLevelMeter.GetPeakLevel() * 0.12f)
+                    : _audioLevelMeter.GetPeakLevel();
+                var systemVolume = _audioLevelMeter.GetMasterVolumeScalar();
+                var frame = controller.Next(music, level, systemVolume, musicColors.Count);
+                var envelope = frame.Envelope;
+                var musicBrightness = music.BaseBrightness +
+                    (music.PeakBrightness - music.BaseBrightness) * Math.Pow(envelope, 0.55);
+                var brightness = (int)Math.Clamp(Math.Round(musicBrightness), music.BaseBrightness, music.PeakBrightness);
+                var sourceColor = musicColors[frame.ColorIndex % musicColors.Count];
+                var color = ApplyNotificationFlash(sourceColor.Scale(brightness), settings);
 
                 if (color != lastColor)
                 {
