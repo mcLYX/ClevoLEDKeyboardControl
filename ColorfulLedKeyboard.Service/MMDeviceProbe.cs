@@ -102,14 +102,17 @@ internal sealed class MMDeviceProbe : IAudioDeviceProbe, IMMNotificationClient, 
         if (flow != DataFlow.Render) return;
         if (role != Role.Multimedia) return;
 
-        try
+        // 关键：COM 回调线程上调 MMDeviceEnumerator 任何 API 都会 STA 死锁。
+        // 把整个 Provider 回调链扔到 ThreadPool，本回调仅触发 + 立刻返回。
+        var callback = _onDefaultDeviceChanged;
+        if (callback is null) return;
+
+        var snapshot = defaultDeviceId;
+        System.Threading.ThreadPool.QueueUserWorkItem(_ =>
         {
-            _onDefaultDeviceChanged?.Invoke(defaultDeviceId);
-        }
-        catch
-        {
-            // 不让异常冒到 NAudio COM 层
-        }
+            try { callback(snapshot); }
+            catch { /* 别让 ThreadPool 线程异常崩进程 */ }
+        });
     }
 
     public void OnDeviceAdded(string deviceId) { }
