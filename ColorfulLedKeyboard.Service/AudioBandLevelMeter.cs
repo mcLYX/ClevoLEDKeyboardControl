@@ -18,6 +18,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
     private readonly object _sync = new();
     private readonly BandState[] _bandStates = AdaptiveBands.Select(_ => new BandState()).ToArray();
     private readonly AudioSourceProvider _source;
+    private string _lastKnownDeviceId = "";
     private WasapiLoopbackCapture? _capture;
     private float[] _samples = [];
     private int _sampleRate = 48000;
@@ -39,6 +40,22 @@ internal sealed class AudioBandLevelMeter : IDisposable
 
     private void OnSourceChanged(object? sender, AudioSourceChangedEventArgs e)
     {
+        // 只在两种情况下重建 capture：
+        //   1. device id 真变了（切换音频源）
+        //   2. 进入 Hfp 状态（避免在 16kHz/Mono 端点上抓 loopback）
+        // 同设备的 Active↔Unavailable 状态切换（如停音乐 1.5s 后 fallback 把 Status 切到
+        // Unavailable）不要停 capture，否则恢复时永远拿不到样本，永久卡 Unavailable。
+        var prevId = _lastKnownDeviceId;
+        var newId = e.DeviceId ?? "";
+        var deviceChanged = !string.Equals(prevId, newId, StringComparison.Ordinal);
+        _lastKnownDeviceId = newId;
+
+        if (!deviceChanged && e.Status != AudioSourceStatus.Hfp)
+        {
+            // 同设备状态机内部翻转，不动 capture
+            return;
+        }
+
         // ResetCapture 会调用 NAudio 的 StopRecording，必须脱离 COM 回调线程
         // 否则在 IMMNotificationClient 回调链路上同步停 capture 会死锁
         System.Threading.ThreadPool.QueueUserWorkItem(_ => ResetCapture());
