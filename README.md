@@ -2,8 +2,6 @@
 
 ClevoLEDKeyboardControl 是一个面向 Clevo 兼容机型的键盘 RGB 灯效控制程序，采用 Windows 服务 + 托盘程序运行。
 
-> **Fork notice**：本项目基于 [xuha233/ClevoRGBControl](https://github.com/xuha233/ClevoRGBControl)（GPL-3.0）继续开发并改名。原始版权归原作者所有；自 2026-06-10 起在本仓库继续维护与修改，遵循 GPL-3.0 协议开源。
-
 程序通过 `InsydeDCHU.dll` 调用厂商接口控制键盘灯。安装器会自动从安装包、安装器旁边、旧版安装目录和常见 Control Center 目录中查找该 DLL（来自 Clevo / 蓝天厂商提供的 Control Center 软件）。
 
 ## 功能
@@ -107,6 +105,8 @@ publish\ClevoLEDKeyboardControlSetup.exe
 - 本项目 fork 自 [xuha233/ClevoRGBControl](https://github.com/xuha233/ClevoRGBControl)，原作者实现了 Windows 服务 + 托盘 + 安装器 + 诊断页等完整框架。
 - 原项目最初参考了 [moshuiD/Colorful-Keyborad-Led-Color-Setting](https://github.com/moshuiD/Colorful-Keyborad-Led-Color-Setting)，确认了通过 `InsydeDCHU.dll` 和 `SetDCHU_Data` 控制键盘灯的方式。
 - 注：上游项目中的 `SetZone(1/2/3, color)` 接口在 P955ET1 这类单分区机型上实际是 SCMD 0x67 多色序列槽位写而非真分区，本项目已据反向工程结果重写为单一面板接口。完整协议分析见 [`docs/reverse-engineering/dchu-protocol-findings.md`](docs/reverse-engineering/dchu-protocol-findings.md)。
+
+> **Fork notice**：本项目基于 [xuha233/ClevoRGBControl](https://github.com/xuha233/ClevoRGBControl)（GPL-3.0）继续开发并改名。原始版权归原作者所有；自 2026-06-10 起在本仓库继续维护与修改，遵循 GPL-3.0 协议开源。
 
 详细修改记录见 [NOTICE](NOTICE) 与 [CHANGES.md](CHANGES.md)。
 
