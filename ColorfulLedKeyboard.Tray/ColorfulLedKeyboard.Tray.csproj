@@ -15,10 +15,6 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>..\assets\app.ico</ApplicationIcon>
-    <Version>2.1.1</Version>
-    <AssemblyVersion>2.1.1.0</AssemblyVersion>
-    <FileVersion>2.1.1.0</FileVersion>
-    <InformationalVersion>2.1.1</InformationalVersion>
   </PropertyGroup>
 
 </Project>

@@ -1,6 +1,6 @@
 namespace ColorfulLedKeyboard.Core;
 
-public sealed class MusicSettings
+public sealed class MusicSettings : IMusicTunable
 {
     private static readonly string[] DefaultColorValues =
     [
@@ -14,6 +14,10 @@ public sealed class MusicSettings
         "#FFD2A1", "#CFE8FF", "#FFB4DC", "#B4FFD2"
     ];
     public const string DefaultPresetName = "通用";
+    public const double BeatThresholdAlgorithmScale = 0.10;
+
+    public static double ToAlgorithmBeatThreshold(double beatThreshold) =>
+        MusicSettingsNormalizer.ToAlgorithmBeatThreshold(beatThreshold);
 
     public string PresetName { get; set; } = DefaultPresetName;
 
@@ -60,27 +64,8 @@ public sealed class MusicSettings
     public MusicSettings Normalize()
     {
         PresetName = NormalizePresetName(PresetName);
-        if (!Enum.IsDefined(ResponseMode))
-        {
-            ResponseMode = LevelColorEnabled ? MusicResponseMode.LevelColor : MusicResponseMode.BrightnessPulse;
-        }
-
-        LowColor = LightingEffectSettings.NormalizeHex(LowColor, "#0040FF");
-        HighColor = LightingEffectSettings.NormalizeHex(HighColor, "#FF0040");
-        Colors = NormalizeColors(Colors, LowColor, HighColor);
-        LowColor = Colors[0];
-        HighColor = Colors[^1];
-        Sensitivity = Math.Clamp(Sensitivity, 0.5, 2.0);
-        AttackMs = Math.Clamp(AttackMs, 10, 1000);
-        ReleaseMs = Math.Clamp(ReleaseMs, 20, 3000);
-        BaseBrightness = Math.Clamp(BaseBrightness, 0, 100);
-        PeakBrightness = Math.Clamp(PeakBrightness, BaseBrightness, 100);
-        IntervalMs = Math.Clamp(IntervalMs, 15, 200);
-        NoiseGate = Math.Clamp(NoiseGate, 0, 0.5);
-        BeatThreshold = Math.Clamp(BeatThreshold, 0.02, 0.8);
-        PeakHoldMs = Math.Clamp(PeakHoldMs, 0, 500);
-        EqLowHz = Math.Clamp(EqLowHz, 20, 1000);
-        EqHighHz = Math.Clamp(EqHighHz, EqLowHz + 10, 8000);
+        var fallbackResponseMode = LevelColorEnabled ? MusicResponseMode.LevelColor : MusicResponseMode.BrightnessPulse;
+        MusicSettingsNormalizer.Normalize(this, NormalizeColors, fallbackResponseMode);
         Spotify ??= new SpotifySettings();
         Spotify.Normalize();
         LevelColorEnabled = ResponseMode == MusicResponseMode.LevelColor;
@@ -214,21 +199,69 @@ public sealed class MusicSettings
         {
             Name = DefaultPresetName,
             ResponseMode = MusicResponseMode.LevelColor,
-            LowColor = "#FF0000",
-            HighColor = "#B4FFD2",
-            Colors = DefaultColors(),
+            LowColor = "#FFD2A1",
+            HighColor = "#007500",
+            Colors =
+            [
+                "#FFD2A1",
+                "#000075",
+                "#0080FF",
+                "#00FF00",
+                "#00B85C",
+                "#0000B8",
+                "#E0E0E0",
+                "#606060",
+                "#757500",
+                "#3B0075",
+                "#B4FFD2",
+                "#FF0000",
+                "#FF0080",
+                "#FFB4DC",
+                "#007575",
+                "#FF00FF",
+                "#00B8B8",
+                "#750000",
+                "#00753B",
+                "#003B75",
+                "#005CB8",
+                "#75003B",
+                "#B8B800",
+                "#FFFF00",
+                "#B85C00",
+                "#FFFFFF",
+                "#80FF00",
+                "#8000FF",
+                "#00B800",
+                "#753B00",
+                "#750075",
+                "#B800B8",
+                "#808080",
+                "#B80000",
+                "#00FF80",
+                "#C0C0C0",
+                "#0000FF",
+                "#A0A0A0",
+                "#00FFFF",
+                "#CFE8FF",
+                "#B8005C",
+                "#FF8000",
+                "#5CB800",
+                "#5C00B8",
+                "#3B7500",
+                "#007500"
+            ],
             Sensitivity = 2.0,
-            AttackMs = 35,
+            AttackMs = 20,
             ReleaseMs = 80,
-            BaseBrightness = 25,
+            BaseBrightness = 30,
             PeakBrightness = 100,
             NoiseGate = 0,
             BeatThreshold = 0.02,
-            PeakHoldMs = 50,
+            PeakHoldMs = 90,
             FollowSystemVolume = false,
             EqEnabled = false,
-            EqLowHz = 30,
-            EqHighHz = 5000
+            EqLowHz = 50,
+            EqHighHz = 10999
         }.Normalize()
     ];
 }
@@ -239,7 +272,7 @@ public enum MusicResponseMode
     BrightnessPulse = 1
 }
 
-public sealed class MusicPreset
+public sealed class MusicPreset : IMusicTunable
 {
     public string Name { get; set; } = MusicSettings.DefaultPresetName;
 
@@ -280,27 +313,7 @@ public sealed class MusicPreset
     public MusicPreset Normalize()
     {
         Name = string.IsNullOrWhiteSpace(Name) ? "" : Name.Trim();
-        if (!Enum.IsDefined(ResponseMode))
-        {
-            ResponseMode = MusicResponseMode.LevelColor;
-        }
-
-        LowColor = LightingEffectSettings.NormalizeHex(LowColor, "#0040FF");
-        HighColor = LightingEffectSettings.NormalizeHex(HighColor, "#FF0040");
-        Colors = NormalizeColors(Colors, LowColor, HighColor);
-        LowColor = Colors[0];
-        HighColor = Colors[^1];
-        Sensitivity = Math.Clamp(Sensitivity, 0.5, 2.0);
-        AttackMs = Math.Clamp(AttackMs, 10, 1000);
-        ReleaseMs = Math.Clamp(ReleaseMs, 20, 3000);
-        BaseBrightness = Math.Clamp(BaseBrightness, 0, 100);
-        PeakBrightness = Math.Clamp(PeakBrightness, BaseBrightness, 100);
-        IntervalMs = Math.Clamp(IntervalMs, 15, 200);
-        NoiseGate = Math.Clamp(NoiseGate, 0, 0.5);
-        BeatThreshold = Math.Clamp(BeatThreshold, 0.02, 0.8);
-        PeakHoldMs = Math.Clamp(PeakHoldMs, 0, 500);
-        EqLowHz = Math.Clamp(EqLowHz, 20, 1000);
-        EqHighHz = Math.Clamp(EqHighHz, EqLowHz + 10, 8000);
+        MusicSettingsNormalizer.Normalize(this, NormalizeColors, MusicResponseMode.LevelColor);
         return this;
     }
 

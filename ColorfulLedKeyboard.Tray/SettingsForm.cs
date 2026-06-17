@@ -72,10 +72,10 @@ public sealed class SettingsForm : Form
     private Panel? _musicReleaseRow;
     private readonly ComboBox _musicResponseMode = new();
     private readonly SliderRow _musicNoiseGate = new("噪声门", 0, 50, "%");
-    private readonly SliderRow _musicBeatThreshold = new("节拍阈值", 2, 80, "%");
+    private readonly SliderRow _musicBeatThreshold = new("节拍阈值", 0, 100, "%");
     private readonly CheckBox _musicEqEnabled = new() { Text = "自适应鼓点检测" };
     private readonly SliderRow _musicEqLow = new("低频参考", 20, 1000, " Hz");
-    private readonly SliderRow _musicEqHigh = new("高频参考", 40, 8000, " Hz");
+    private readonly SliderRow _musicEqHigh = new("高频参考", 40, 16000, " Hz");
     private readonly SliderRow _musicBaseBrightness = new("基础亮度", 0, 100, "%");
     private readonly SliderRow _musicPeakBrightness = new("峰值亮度", 0, 100, "%");
     private readonly CheckBox _notificationFlashEnabled = new() { Text = "收到 Windows 通知时闪烁键盘" };
@@ -99,7 +99,7 @@ public sealed class SettingsForm : Form
     private readonly Label _serviceSummary = new();
     private readonly Label _componentSummary = new();
     private readonly Label _controlSummary = new();
-    private static readonly double[] MusicSensitivityValues = [0.5, 1.0, 1.5, 2.0];
+    private static readonly double[] MusicSensitivityValues = [0.5, 1.0, 1.5, 2.0, 2.2, 2.5, 2.8, 3.1, 3.4, 3.6, 3.8, 4.0];
     private static readonly int[] MusicAttackValues = [10, 15, 20, 25, 30, 40];
     private static readonly int[] MusicReleaseValues = [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200];
     private EffectPresetSettings _effectPresets = new();

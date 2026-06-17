@@ -26,3 +26,4 @@ assets/driver/*.dll
 # Reverse engineering work area (large ACPI binary/DSL dumps, not needed at build time)
 reverse/
 docs/superpowers/
+.superpowers/

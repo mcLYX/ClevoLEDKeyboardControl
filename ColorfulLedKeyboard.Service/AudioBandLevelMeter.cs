@@ -1,5 +1,7 @@
 using ColorfulLedKeyboard.Core;
 using NAudio.Wave;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace ColorfulLedKeyboard.Service;
 
@@ -12,17 +14,25 @@ internal sealed class AudioBandLevelMeter : IDisposable
         new(140, 280, 1.00),
         new(280, 700, 0.95),
         new(700, 2500, 0.95),
-        new(2500, 8000, 0.85)
+        new(2500, 8000, 0.85),
+        new(8000, 16000, 0.65)
     ];
 
     private readonly object _sync = new();
     private readonly BandState[] _bandStates = AdaptiveBands.Select(_ => new BandState()).ToArray();
     private readonly AudioSourceProvider _source;
+    // D 阶段：PCM buffer 对象池，预分配 4 个 8192 缓冲。写侧（OnDataAvailable）从池取、填、锁内换引用；
+    // 读侧（GetAdaptiveBeatLevel）持引用在锁外用 span 处理。池的周转确保稳态零堆分配。
+    private readonly ConcurrentQueue<float[]> _bufferPool = new();
+    private readonly Queue<float[]> _retiredBuffers = new();
+    private readonly float[][] _initialBuffers = [new float[8192], new float[8192], new float[8192], new float[8192]];
+    private int _activeSnapshotReaders;
     private string _lastKnownDeviceId = "";
     private DateTimeOffset _lastCaptureResetAt = DateTimeOffset.MinValue;
     private DateTimeOffset _ensureCooldownUntil = DateTimeOffset.MinValue;
     private WasapiLoopbackCapture? _capture;
     private float[] _samples = [];
+    private int _sampleCount;
     private int _sampleRate = 48000;
     private DateTimeOffset _lastAdaptiveUpdate = DateTimeOffset.MinValue;
     private double _adaptiveNoise;
@@ -38,6 +48,17 @@ internal sealed class AudioBandLevelMeter : IDisposable
     {
         _source = source;
         _source.SourceChanged += OnSourceChanged;
+        foreach (var buf in _initialBuffers) { _bufferPool.Enqueue(buf); }
+    }
+
+    /// <summary>
+    /// 测试专用构造：不订阅 AudioSourceProvider，不开 WasapiLoopbackCapture。
+    /// 配合 internal ProcessFrame 直接喂合成 PCM 验证算法行为。
+    /// </summary>
+    internal AudioBandLevelMeter()
+    {
+        _source = null!;
+        foreach (var buf in _initialBuffers) { _bufferPool.Enqueue(buf); }
     }
 
     private void OnSourceChanged(object? sender, AudioSourceChangedEventArgs e)
@@ -71,56 +92,101 @@ internal sealed class AudioBandLevelMeter : IDisposable
     public float GetLevel(int lowHz, int highHz)
     {
         EnsureCapture();
-        float[] snapshot;
-        int sampleRate;
-        lock (_sync)
+        var snapshot = AcquireSnapshot(out var sampleRate, out var snapshotAcquired);
+        try
         {
-            snapshot = _samples;
-            sampleRate = _sampleRate;
-        }
+            if (snapshot.Length < 256)
+            {
+                return 0f;
+            }
 
-        if (snapshot.Length < 256)
+            lowHz = Math.Clamp(lowHz, 20, sampleRate / 2 - 20);
+            highHz = Math.Clamp(highHz, lowHz + 10, sampleRate / 2);
+            var total = 0d;
+            var count = 0;
+            for (var hz = lowHz; hz <= highHz; hz += Math.Max(10, (highHz - lowHz) / 8))
+            {
+                total += Goertzel(snapshot, sampleRate, hz);
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return 0f;
+            }
+
+            var normalizedEnergy = Math.Sqrt(total / count) / Math.Max(1, snapshot.Length / 2d);
+            var level = normalizedEnergy * 1.15;
+            return (float)Math.Clamp(level, 0, 1);
+        }
+        finally
         {
-            return 0f;
+            if (snapshotAcquired)
+            {
+                ReleaseSnapshot();
+            }
         }
-
-        lowHz = Math.Clamp(lowHz, 20, sampleRate / 2 - 20);
-        highHz = Math.Clamp(highHz, lowHz + 10, sampleRate / 2);
-        var total = 0d;
-        var count = 0;
-        for (var hz = lowHz; hz <= highHz; hz += Math.Max(10, (highHz - lowHz) / 8))
-        {
-            total += Goertzel(snapshot, sampleRate, hz);
-            count++;
-        }
-
-        if (count == 0)
-        {
-            return 0f;
-        }
-
-        var normalizedEnergy = Math.Sqrt(total / count) / Math.Max(1, snapshot.Length / 2d);
-        var level = normalizedEnergy * 1.15;
-        return (float)Math.Clamp(level, 0, 1);
     }
 
     public float GetAdaptiveBeatLevel(MusicSettings settings)
     {
+        // 调用契约：settings 必须已 Normalize（Worker.RunMusicAsync 在循环外 normalize 一次）。
+        // sanity check 仅校验 Sensitivity，不替代调用方契约。Release 编译下零成本。
+        Debug.Assert(settings.Sensitivity is >= 0.5 and <= 4.0,
+            "MusicSettings must be normalized before GetAdaptiveBeatLevel()");
+
         EnsureCapture();
-        float[] snapshot;
-        int sampleRate;
+        var snapshot = AcquireSnapshot(out var sampleRate, out var snapshotAcquired);
+        try
+        {
+            if (snapshot.Length < 256)
+            {
+                return 0f;
+            }
+
+            return ProcessFrame(snapshot, sampleRate, settings, DateTimeOffset.UtcNow);
+        }
+        finally
+        {
+            if (snapshotAcquired)
+            {
+                ReleaseSnapshot();
+            }
+        }
+    }
+
+    private ReadOnlySpan<float> AcquireSnapshot(out int sampleRate, out bool snapshotAcquired)
+    {
         lock (_sync)
         {
-            snapshot = _samples;
+            if (_sampleCount > 0)
+            {
+                _activeSnapshotReaders++;
+                snapshotAcquired = true;
+            }
+            else
+            {
+                snapshotAcquired = false;
+            }
             sampleRate = _sampleRate;
+            return _samples.AsSpan(0, _sampleCount);
         }
+    }
 
+    /// <summary>
+    /// 自适应鼓点检测的可注入 PCM 的有状态帧处理入口。从 PCM snapshot 出发，更新并应用
+    /// _bandStates / _rmsAverage / _adaptiveNoise / _gateOpen 等状态后返回最终 envelope。
+    ///
+    /// 抽出来是为了让测试可以注入合成 PCM + 注入 now 驱动时间，不依赖 NAudio loopback。
+    /// internal 由 InternalsVisibleTo 暴露给测试项目。
+    /// </summary>
+    internal float ProcessFrame(ReadOnlySpan<float> snapshot, int sampleRate, MusicSettings settings, DateTimeOffset now)
+    {
         if (snapshot.Length < 256)
         {
             return 0f;
         }
 
-        var now = DateTimeOffset.UtcNow;
         var dt = _lastAdaptiveUpdate == DateTimeOffset.MinValue
             ? settings.IntervalMs / 1000d
             : (now - _lastAdaptiveUpdate).TotalSeconds;
@@ -128,7 +194,14 @@ internal sealed class AudioBandLevelMeter : IDisposable
         dt = Math.Clamp(dt, 0.005, 0.2);
         var rms = CalculateRms(snapshot);
         _rmsAverage = Smooth(_rmsAverage, rms, dt, rms > _rmsAverage ? 4.0 : 0.9);
-        var gain = Math.Clamp(0.10 / Math.Max(0.015, _rmsAverage), 0.55, 2.6);
+        // C1: gain 不再混入 Sensitivity，回归纯 RMS 自归一。
+        // 上限 2.2 让 raw 稳态工作点回到 [0.05, 0.6]，给 onset 检测留出动态范围（避免被 Sensitivity 推到饱和）。
+        // Sensitivity 改为只影响 openThreshold（C3）和 FollowOutput 输入（C4）。
+        var gain = Math.Clamp(0.10 / Math.Max(0.015, _rmsAverage), 0.40, 2.2);
+
+        // C2: sensitivityFactor — Sensitivity=2.0（默认）→ factor=1.0，作为 #2 基线锚点。
+        // 落在 openThreshold/output 两处，避免双层 clamp 抹平差异。
+        var sensitivityFactor = Math.Clamp(settings.Sensitivity / 2.0, 0.25, 2.0);
 
         var weightedTotal = 0d;
         var weightTotal = 0d;
@@ -169,7 +242,12 @@ internal sealed class AudioBandLevelMeter : IDisposable
         var noiseTimeConstant = fused < _adaptiveNoise ? 0.12 : 1.8;
         _adaptiveNoise = Smooth(_adaptiveNoise, fused, dt, noiseTimeConstant);
 
-        var openThreshold = Math.Clamp(_adaptiveNoise + settings.NoiseGate * 0.45 + settings.BeatThreshold * 0.10, 0.012, 0.55);
+        // C3: openThreshold 反比缩放（Sensitivity 高 → 门更低 → 更多拍点过门）。
+        // 整段除以 sensitivityFactor，包括 _adaptiveNoise，否则安静段噪声主导时 Sensitivity 调高无感。
+        // 下界 0.012 是物理底噪保护，缩放后仍 clamp，不被绕过。
+        var beatThreshold = MusicSettings.ToAlgorithmBeatThreshold(settings.BeatThreshold);
+        var gateBias = settings.NoiseGate * 0.45 + beatThreshold;
+        var openThreshold = Math.Clamp((_adaptiveNoise + gateBias) / sensitivityFactor, 0.012, 0.55);
         var closeThreshold = Math.Max(0.01, openThreshold * 0.68);
         if (!_gateOpen && fused < openThreshold)
         {
@@ -185,17 +263,60 @@ internal sealed class AudioBandLevelMeter : IDisposable
         _gateOpen = true;
         var opened = (fused - closeThreshold) / Math.Max(0.001, 1 - closeThreshold);
         var compressed = Math.Pow(Math.Clamp(opened, 0, 1), 0.72);
-        return FollowOutput(compressed, settings, dt, now);
+        // C4: FollowOutput 输入正比缩放（Sensitivity 高 → 输出更亮，触发更密）。
+        // 必须在传入 FollowOutput 之前乘 —— beatThreshold 比较针对 target，先缩放再比较。
+        // 不在 FollowOutput 内部乘（破坏 attack/release 物理），不乘 _outputEnvelope。
+        var scaled = Math.Clamp(compressed * sensitivityFactor, 0, 1);
+        return FollowOutput(scaled, settings, dt, now);
+    }
+
+    private void ReleaseSnapshot()
+    {
+        lock (_sync)
+        {
+            _activeSnapshotReaders--;
+            if (_activeSnapshotReaders == 0)
+            {
+                while (_retiredBuffers.Count > 0)
+                {
+                    _bufferPool.Enqueue(_retiredBuffers.Dequeue());
+                }
+            }
+        }
+    }
+
+    private void RetireBuffer(float[]? buffer)
+    {
+        if (buffer is not { Length: > 0 })
+        {
+            return;
+        }
+
+        lock (_sync)
+        {
+            if (_activeSnapshotReaders == 0)
+            {
+                _bufferPool.Enqueue(buffer);
+            }
+            else
+            {
+                _retiredBuffers.Enqueue(buffer);
+            }
+        }
     }
 
     public void Dispose()
     {
-        _source.SourceChanged -= OnSourceChanged;
+        if (_source is not null)
+        {
+            _source.SourceChanged -= OnSourceChanged;
+        }
         ResetCapture();
     }
 
     private void EnsureCapture()
     {
+        if (_source is null) return;
         if (_capture is not null) return;
 
         // HFP 屏蔽：通话端点不开 capture，避免激活 SCO 链路影响通话音质。
@@ -234,10 +355,16 @@ internal sealed class AudioBandLevelMeter : IDisposable
 
         // 清空残留的 PCM 缓存与 envelope/hold 状态，否则 capture 销毁后这一帧
         // 还会被 GetAdaptiveBeatLevel 读到，灯锁在最后一刻的拍点高峰色不衰减。
+        // D 阶段：归还旧 buffer 给池，避免设备切换/暂停场景下漏 buffer。
+        float[]? oldBuffer;
         lock (_sync)
         {
+            oldBuffer = _samples;
             _samples = [];
+            _sampleCount = 0;
         }
+        RetireBuffer(oldBuffer);
+
         _outputEnvelope = 0;
         _heldOutput = 0;
         _holdUntil = DateTimeOffset.MinValue;
@@ -291,7 +418,12 @@ internal sealed class AudioBandLevelMeter : IDisposable
 
         var frames = args.BytesRecorded / (bytesPerSample * channels);
         var sampleCount = Math.Min(frames, format.SampleRate / 16);
-        var samples = new float[sampleCount];
+        // D 阶段：从池里取 buffer 复用；池空时 fallback new（启动短暂 warmup 后稳态命中）。
+        // 大小不够也 new（极少见，覆盖到 SampleRate/16 即可，初始 8192 够覆盖到 128kHz）。
+        if (!_bufferPool.TryDequeue(out var samples) || samples.Length < sampleCount)
+        {
+            samples = new float[Math.Max(sampleCount, 8192)];
+        }
         var sourceFrame = Math.Max(0, frames - sampleCount);
         for (var i = 0; i < sampleCount; i++, sourceFrame++)
         {
@@ -305,11 +437,17 @@ internal sealed class AudioBandLevelMeter : IDisposable
             samples[i] = sum / channels;
         }
 
+        float[]? oldBuffer;
         lock (_sync)
         {
             _sampleRate = format.SampleRate;
+            oldBuffer = _samples;
             _samples = samples;
+            _sampleCount = sampleCount;
         }
+        // 旧 buffer 不能立即归还池：读线程可能仍在锁外用 span 分析它。
+        // RetireBuffer 在无 active reader 时入池，否则暂存在 _retiredBuffers，读侧 ReleaseSnapshot 后统一归还。
+        RetireBuffer(oldBuffer);
     }
 
     private static float ReadSample(byte[] buffer, int offset, WaveFormat format)
@@ -337,7 +475,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
         return 0;
     }
 
-    private static double GetBandLevel(float[] samples, int sampleRate, int lowHz, int highHz)
+    private static double GetBandLevel(ReadOnlySpan<float> samples, int sampleRate, int lowHz, int highHz)
     {
         lowHz = Math.Clamp(lowHz, 20, sampleRate / 2 - 20);
         highHz = Math.Clamp(highHz, lowHz + 10, sampleRate / 2);
@@ -359,7 +497,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
 
     private float FollowOutput(double target, MusicSettings settings, double dt, DateTimeOffset now)
     {
-        var beatThreshold = Math.Clamp(0.18 + settings.BeatThreshold * 0.40, 0.08, 0.55);
+        var beatThreshold = Math.Clamp(0.18 + MusicSettings.ToAlgorithmBeatThreshold(settings.BeatThreshold) * 4.0, 0.08, 0.55);
         var minCooldownMs = Math.Clamp(settings.AttackMs * 0.8 + 10, 18, 70);
         var adaptiveCooldownMs = Math.Clamp(_beatIntervalMs * 0.35, minCooldownMs, 100);
         var canTrigger = now - _lastBeatAt > TimeSpan.FromMilliseconds(adaptiveCooldownMs);
@@ -400,7 +538,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
         return (float)Math.Clamp(_outputEnvelope, 0, 1);
     }
 
-    private static double CalculateRms(float[] samples)
+    private static double CalculateRms(ReadOnlySpan<float> samples)
     {
         if (samples.Length == 0)
         {
@@ -419,7 +557,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
     private static double BandPreference(BandDefinition band, int preferredLowHz, int preferredHighHz)
     {
         preferredLowHz = Math.Clamp(preferredLowHz, 20, 1000);
-        preferredHighHz = Math.Clamp(preferredHighHz, preferredLowHz + 10, 8000);
+        preferredHighHz = Math.Clamp(preferredHighHz, preferredLowHz + 10, 16000);
         var overlap = Math.Max(0, Math.Min(band.HighHz, preferredHighHz) - Math.Max(band.LowHz, preferredLowHz));
         var bandWidth = Math.Max(1, band.HighHz - band.LowHz);
         var overlapRatio = overlap / (double)bandWidth;
@@ -432,7 +570,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
         return current + (target - current) * alpha;
     }
 
-    private static double Goertzel(float[] samples, int sampleRate, int targetHz)
+    private static double Goertzel(ReadOnlySpan<float> samples, int sampleRate, int targetHz)
     {
         var omega = 2.0 * Math.PI * targetHz / sampleRate;
         var coeff = 2.0 * Math.Cos(omega);

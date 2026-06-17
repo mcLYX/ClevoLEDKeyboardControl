@@ -440,18 +440,22 @@ public sealed class CoreSettingsTests
 
         var universal = MusicSettings.BuiltInPresets.Single();
         Assert.Equal(MusicResponseMode.LevelColor, universal.ResponseMode);
+        Assert.Equal("#FFD2A1", universal.LowColor);
+        Assert.Equal("#007500", universal.HighColor);
         Assert.Equal(2.0, universal.Sensitivity);
-        Assert.Equal(35, universal.AttackMs);
+        Assert.Equal(20, universal.AttackMs);
         Assert.Equal(80, universal.ReleaseMs);
         Assert.Equal(0, universal.NoiseGate);
         Assert.Equal(0.02, universal.BeatThreshold);
         Assert.False(universal.EqEnabled);
-        Assert.Equal(30, universal.EqLowHz);
-        Assert.Equal(5000, universal.EqHighHz);
+        Assert.Equal(50, universal.EqLowHz);
+        Assert.Equal(10999, universal.EqHighHz);
         Assert.False(universal.FollowSystemVolume);
-        Assert.Equal(25, universal.BaseBrightness);
+        Assert.Equal(30, universal.BaseBrightness);
         Assert.Equal(100, universal.PeakBrightness);
         Assert.Equal(46, universal.Colors.Count);
+        Assert.Equal("#FFD2A1", universal.Colors[0]);
+        Assert.Equal("#007500", universal.Colors[^1]);
         Assert.DoesNotContain("#404040", universal.Colors);
         Assert.DoesNotContain("#000000", universal.Colors);
     }
@@ -512,6 +516,42 @@ public sealed class CoreSettingsTests
 
         Assert.False(muted.BeatTriggered);
         Assert.Equal(0, muted.Envelope);
+    }
+
+    [Fact]
+    public void MusicPulseController_BeatThresholdZero_DoesNotTriggerSilence()
+    {
+        var settings = new MusicSettings
+        {
+            Sensitivity = 4,
+            NoiseGate = 0,
+            BeatThreshold = 0,
+            FollowSystemVolume = false
+        }.Normalize();
+        var controller = new MusicPulseController();
+        var start = new DateTimeOffset(2026, 6, 17, 12, 0, 0, TimeSpan.Zero);
+
+        var frames = Enumerable.Range(0, 20)
+            .Select(i => controller.Next(settings, audioLevel: 0, systemVolumeScalar: 1, colorCount: 2, start.AddMilliseconds(i * 25)))
+            .ToList();
+
+        Assert.All(frames, frame => Assert.False(frame.BeatTriggered));
+        Assert.All(frames, frame => Assert.Equal(0, frame.Envelope));
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(0.5, 0.05)]
+    [InlineData(1.0, 0.10)]
+    public void MusicSettingsNormalizer_MapsBeatThresholdUiToAlgorithmRange(double uiValue, double expectedAlgorithmValue)
+    {
+        var settings = new MusicSettings { BeatThreshold = uiValue }.Normalize();
+        var preset = new MusicPreset { BeatThreshold = uiValue }.Normalize();
+
+        Assert.Equal(uiValue, settings.BeatThreshold, precision: 6);
+        Assert.Equal(uiValue, preset.BeatThreshold, precision: 6);
+        Assert.Equal(expectedAlgorithmValue, MusicSettingsNormalizer.ToAlgorithmBeatThreshold(settings.BeatThreshold), precision: 6);
+        Assert.Equal(expectedAlgorithmValue, MusicSettingsNormalizer.ToAlgorithmBeatThreshold(preset.BeatThreshold), precision: 6);
     }
 
     [Fact]

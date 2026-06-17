@@ -1,5 +1,7 @@
 namespace ColorfulLedKeyboard.Core;
 
+using System.Diagnostics;
+
 public sealed class MusicPulseController
 {
     private double _envelope;
@@ -16,7 +18,9 @@ public sealed class MusicPulseController
 
     public MusicPulseFrame Next(MusicSettings settings, double audioLevel, double systemVolumeScalar, int colorCount, DateTimeOffset now)
     {
+        // Public API 保留 Release 防线：未来调用方即使传入未归一化 settings，也先 clamp 到合法范围。
         settings.Normalize();
+        Debug.Assert(MusicSettingsNormalizer.IsNormalized(settings), "MusicSettings must be normalized before Next()");
         colorCount = Math.Max(1, colorCount);
 
         var dt = _lastUpdate == DateTimeOffset.MinValue
@@ -25,13 +29,14 @@ public sealed class MusicPulseController
         _lastUpdate = now;
 
         var level = NormalizeLevel(settings, audioLevel, systemVolumeScalar);
-        var threshold = Math.Clamp(settings.BeatThreshold, 0.02, 0.8);
+        var threshold = MusicSettings.ToAlgorithmBeatThreshold(settings.BeatThreshold);
+        var hasSignal = level > 0.001;
         var minimumCooldownMs = Math.Clamp(settings.AttackMs + settings.PeakHoldMs + 35, 70, 360);
         var canTrigger = _lastBeat == DateTimeOffset.MinValue ||
             now - _lastBeat >= TimeSpan.FromMilliseconds(minimumCooldownMs);
         var clearRise = level >= _lastLevel + threshold * 0.22;
         var firstBeat = _lastBeat == DateTimeOffset.MinValue && level >= threshold;
-        var triggered = level >= threshold && canTrigger && (clearRise || level >= 0.72 || firstBeat);
+        var triggered = hasSignal && level >= threshold && canTrigger && (clearRise || level >= 0.72 || firstBeat);
 
         if (triggered)
         {
@@ -42,7 +47,7 @@ public sealed class MusicPulseController
         }
         else if (now >= _holdUntil)
         {
-            var target = level >= threshold ? level * 0.45 : 0;
+            var target = hasSignal && level >= threshold ? level * 0.45 : 0;
             var releaseSeconds = Math.Clamp(settings.ReleaseMs / 1000d * 0.38, 0.025, 0.55);
             _envelope = Smooth(_envelope, target, dt, releaseSeconds);
         }
