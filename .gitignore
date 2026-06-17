@@ -1,0 +1,30 @@
+bin/
+obj/
+publish/
+TestResults/
+.vs/
+.idea/
+.vscode/
+.tmp-edge-tests/
+*.user
+*.suo
+*.zip
+*.7z
+*.rar
+*.exe
+*.msi
+*.nupkg
+*.tmp
+*.log
+*.bak
+*.old
+ColorfulLedKeyboard.Installer/Payload/payload.zip
+
+# Vendor driver (not redistributable, fetched at install time from OEM Control Center)
+assets/driver/*.dll
+assets/*.dll
+
+# Reverse engineering work area (large ACPI binary/DSL dumps, not needed at build time)
+reverse/
+docs/superpowers/
+.superpowers/

@@ -1,0 +1,34 @@
+ClevoLEDKeyboardControl
+=======================
+
+This project is a fork of ClevoRGBControl (https://github.com/xuha233/ClevoRGBControl),
+which itself was inspired by moshuiD/Colorful-Keyborad-Led-Color-Setting
+(https://github.com/moshuiD/Colorful-Keyborad-Led-Color-Setting).
+
+The original work is Copyright (C) the ClevoRGBControl authors, licensed under
+the GNU General Public License v3.0. The full text of the license is preserved
+in the LICENSE file at the root of this repository.
+
+Modifications in this fork
+--------------------------
+In accordance with GPL-3.0 section 5(a), the following modifications have been
+made to the original work:
+
+- 2026-06-10: Forked from xuha233/ClevoRGBControl @ commit 90d2438
+  ("Clean repository metadata"). Renamed product to "ClevoLEDKeyboardControl"
+  across user-facing strings, installer paths, Windows service name, registry
+  keys, scripts, release notes and update-check endpoints. Removed the bundled
+  proprietary driver asset (assets/driver/InsydeDCHU.dll) from the repository
+  and documented how end users obtain it from the OEM Control Center software.
+  Legacy service names "ClevoRGBControlService" and "ColorfulLedKeyboardService"
+  are still recognized by the installer for clean upgrades.
+
+Further modifications by downstream maintainers should be appended below with
+a date and a short description of the change.
+
+Third-party components
+----------------------
+- InsydeDCHU.dll: proprietary keyboard driver shipped by Clevo / Insyde as part
+  of the OEM Control Center software. It is NOT distributed with this
+  repository and is NOT covered by the GPL-3.0 license of this project. End
+  users must obtain it from their OEM-provided Control Center installation.
