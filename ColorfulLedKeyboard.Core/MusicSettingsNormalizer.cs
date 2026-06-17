@@ -24,9 +24,12 @@ internal interface IMusicTunable
     bool EqEnabled { get; set; }
     int EqLowHz { get; set; }
     int EqHighHz { get; set; }
+<<<<<<< HEAD
     int FreqHueOffset { get; set; }
     bool EqualLoudness { get; set; }
     DynamicRangeMode DynamicRange { get; set; }
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 }
 
 /// <summary>
@@ -56,8 +59,11 @@ internal static class MusicSettingsNormalizer
     public const int EqLowHzMin = 20;
     public const int EqLowHzMax = 1000;
     public const int EqHighHzMax = 16000;
+<<<<<<< HEAD
     public const int FreqHueOffsetMin = 0;
     public const int FreqHueOffsetMax = 360;
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 
     public const string FactoryLowColor = "#0040FF";
     public const string FactoryHighColor = "#FF0040";
@@ -79,9 +85,13 @@ internal static class MusicSettingsNormalizer
             target.BeatThreshold is >= BeatThresholdMin and <= BeatThresholdMax &&
             target.PeakHoldMs is >= PeakHoldMsMin and <= PeakHoldMsMax &&
             target.EqLowHz is >= EqLowHzMin and <= EqLowHzMax &&
+<<<<<<< HEAD
             target.EqHighHz >= target.EqLowHz + 10 && target.EqHighHz <= EqHighHzMax &&
             target.FreqHueOffset is >= FreqHueOffsetMin and <= FreqHueOffsetMax &&
             Enum.IsDefined(target.DynamicRange);
+=======
+            target.EqHighHz >= target.EqLowHz + 10 && target.EqHighHz <= EqHighHzMax;
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     }
 
     public static void Normalize(IMusicTunable target, Func<List<string>, string, string, List<string>> colorNormalizer,
@@ -109,10 +119,13 @@ internal static class MusicSettingsNormalizer
         target.PeakHoldMs = Math.Clamp(target.PeakHoldMs, PeakHoldMsMin, PeakHoldMsMax);
         target.EqLowHz = Math.Clamp(target.EqLowHz, EqLowHzMin, EqLowHzMax);
         target.EqHighHz = Math.Clamp(target.EqHighHz, target.EqLowHz + 10, EqHighHzMax);
+<<<<<<< HEAD
         target.FreqHueOffset = Math.Clamp(target.FreqHueOffset, FreqHueOffsetMin, FreqHueOffsetMax);
         if (!Enum.IsDefined(target.DynamicRange))
         {
             target.DynamicRange = DynamicRangeMode.PeakOnly;
         }
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     }
 }

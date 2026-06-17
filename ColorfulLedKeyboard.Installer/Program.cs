@@ -226,7 +226,10 @@ internal static class Program
             foreach (var controlCenterFolder in new[] { "ControlCenter", "Control Center", "ControlCenter3", "Control Center 3.0" })
             {
                 yield return new DriverSearchResult("OEM Control Center", Path.Combine(root, controlCenterFolder, DriverDllName));
+<<<<<<< HEAD
                 yield return new DriverSearchResult("OEM Control Center DCHU", Path.Combine(root, controlCenterFolder, "DCHU", DriverDllName));
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             }
         }
     }

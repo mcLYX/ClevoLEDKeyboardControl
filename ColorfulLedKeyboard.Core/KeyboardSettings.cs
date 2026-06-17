@@ -71,7 +71,10 @@ public sealed class KeyboardSettings
                 KeyboardMode.Off => EffectType.Off,
                 KeyboardMode.Pulse => EffectType.Pulse,
                 KeyboardMode.Heartbeat => EffectType.Heartbeat,
+<<<<<<< HEAD
                 KeyboardMode.GradientCycle => EffectType.GradientCycle,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
                 _ => Effect.Type
             };
         }
@@ -131,7 +134,10 @@ public sealed class KeyboardSettings
             EffectType.Off => KeyboardMode.Off,
             EffectType.Pulse => KeyboardMode.Pulse,
             EffectType.Heartbeat => KeyboardMode.Heartbeat,
+<<<<<<< HEAD
             EffectType.GradientCycle => KeyboardMode.GradientCycle,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             _ => Mode
         };
 
@@ -162,7 +168,10 @@ public sealed class KeyboardSettings
                 Sequence = CloneEffect(SavedEffects.Sequence),
                 Pulse = CloneEffect(SavedEffects.Pulse),
                 Heartbeat = CloneEffect(SavedEffects.Heartbeat),
+<<<<<<< HEAD
                 GradientCycle = CloneEffect(SavedEffects.GradientCycle),
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
                 LastUsedLightingEffect = SavedEffects.LastUsedLightingEffect
             },
             EffectPresets = CloneEffectPresets(EffectPresets),
@@ -236,11 +245,14 @@ public sealed class KeyboardSettings
             MinimumBrightness = effect.MinimumBrightness,
             HardBlink = effect.HardBlink,
             CustomSequenceColorsEnabled = effect.CustomSequenceColorsEnabled,
+<<<<<<< HEAD
             GradientHoldMs = effect.GradientHoldMs,
             GradientTransitionMs = effect.GradientTransitionMs,
             GradientMinBrightnessPercent = effect.GradientMinBrightnessPercent,
             GradientAlgorithm = effect.GradientAlgorithm,
             BrightnessGamma = effect.BrightnessGamma,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             Music = new MusicSettings
             {
                 LevelColorEnabled = effect.Music.LevelColorEnabled,
@@ -262,9 +274,12 @@ public sealed class KeyboardSettings
                 EqEnabled = effect.Music.EqEnabled,
                 EqLowHz = effect.Music.EqLowHz,
                 EqHighHz = effect.Music.EqHighHz,
+<<<<<<< HEAD
                 FreqHueOffset = effect.Music.FreqHueOffset,
                 EqualLoudness = effect.Music.EqualLoudness,
                 DynamicRange = effect.Music.DynamicRange,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
                 Spotify = new SpotifySettings
                 {
                     AlbumColorEnabled = effect.Music.Spotify.AlbumColorEnabled,
@@ -292,10 +307,14 @@ public sealed class KeyboardSettings
                     FollowSystemVolume = preset.FollowSystemVolume,
                     EqEnabled = preset.EqEnabled,
                     EqLowHz = preset.EqLowHz,
+<<<<<<< HEAD
                     EqHighHz = preset.EqHighHz,
                     FreqHueOffset = preset.FreqHueOffset,
                     EqualLoudness = preset.EqualLoudness,
                     DynamicRange = preset.DynamicRange
+=======
+                    EqHighHz = preset.EqHighHz
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
                 }).ToList()
             },
             Sequence = effect.Sequence.Select(item => new SequenceColor
@@ -317,8 +336,12 @@ public sealed class KeyboardSettings
             Breathing = presets.Breathing.Select(CloneEffectPreset).ToList(),
             Sequence = presets.Sequence.Select(CloneEffectPreset).ToList(),
             Pulse = presets.Pulse.Select(CloneEffectPreset).ToList(),
+<<<<<<< HEAD
             Heartbeat = presets.Heartbeat.Select(CloneEffectPreset).ToList(),
             GradientCycle = presets.GradientCycle.Select(CloneEffectPreset).ToList()
+=======
+            Heartbeat = presets.Heartbeat.Select(CloneEffectPreset).ToList()
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         }.Normalize();
     }
 
@@ -371,6 +394,7 @@ public sealed class EffectMemorySettings
     public LightingEffectSettings Heartbeat { get; set; } =
         EffectPresetSettings.CreateSoftwareDefault(EffectType.Heartbeat);
 
+<<<<<<< HEAD
     public LightingEffectSettings GradientCycle { get; set; } =
         new()
         {
@@ -383,6 +407,8 @@ public sealed class EffectMemorySettings
             ]
         };
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     /// <summary>
     /// 最后一次用户切到的灯效类型（不含 Off）。
     /// 当用户从音乐模式切回灯效模式时，UI 会从此字段恢复 Effect.Type，让"切回"体验连贯。
@@ -399,7 +425,10 @@ public sealed class EffectMemorySettings
         Sequence = NormalizeForType(Sequence, EffectType.Sequence);
         Pulse = NormalizeForType(Pulse, EffectType.Pulse);
         Heartbeat = NormalizeForType(Heartbeat, EffectType.Heartbeat);
+<<<<<<< HEAD
         GradientCycle = NormalizeForType(GradientCycle, EffectType.GradientCycle);
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         // 旧版本升级或损坏的配置可能落到无效值（如已废弃的 Music=5），统一回退到 Static。
         if (!Enum.IsDefined(LastUsedLightingEffect) || LastUsedLightingEffect == EffectType.Off)
         {
@@ -437,8 +466,11 @@ public sealed class EffectPresetSettings
 
     public List<EffectPreset> Heartbeat { get; set; } = [];
 
+<<<<<<< HEAD
     public List<EffectPreset> GradientCycle { get; set; } = [];
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     public EffectPresetSettings Normalize()
     {
         Static = NormalizeList(Static, EffectType.Static);
@@ -447,7 +479,10 @@ public sealed class EffectPresetSettings
         Sequence = NormalizeList(Sequence, EffectType.Sequence);
         Pulse = NormalizeList(Pulse, EffectType.Pulse);
         Heartbeat = NormalizeList(Heartbeat, EffectType.Heartbeat);
+<<<<<<< HEAD
         GradientCycle = NormalizeList(GradientCycle, EffectType.GradientCycle);
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         return this;
     }
 
@@ -459,7 +494,10 @@ public sealed class EffectPresetSettings
         EffectType.Sequence => Sequence,
         EffectType.Pulse => Pulse,
         EffectType.Heartbeat => Heartbeat,
+<<<<<<< HEAD
         EffectType.GradientCycle => GradientCycle,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         _ => []
     };
 
@@ -511,6 +549,7 @@ public sealed class EffectPresetSettings
                     new SequenceColor { Color = "#FF4080", HoldMs = DefaultHeartbeatPeriodMs, TransitionMs = 0, Breathing = false }
                 ]
             },
+<<<<<<< HEAD
             EffectType.GradientCycle => new LightingEffectSettings
             {
                 Type = EffectType.GradientCycle,
@@ -525,6 +564,8 @@ public sealed class EffectPresetSettings
                     new SequenceColor { Color = "#0000FF", HoldMs = DefaultPeriodMs, TransitionMs = 0, Breathing = false }
                 ]
             },
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             _ => new LightingEffectSettings
             {
                 Type = EffectType.Rainbow,

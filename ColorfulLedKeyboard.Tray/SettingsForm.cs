@@ -28,17 +28,26 @@ public sealed class SettingsForm : Form
     private readonly ComboBox _speed = new();
     private readonly Button _customColors = new() { Text = "自定义颜色", Width = 128, Height = ButtonHeight };
     private readonly ColorPickerRow _effectColor = new("效果颜色");
+<<<<<<< HEAD
     private readonly SliderRow _period = new("呼吸周期", 1, 30000, " ms");
     private readonly SliderRow _minimumBrightness = new("最低亮度", 0, 100, "%");
     private readonly CheckBox _hardBlink = new() { Text = "硬闪烁" };
     private readonly SliderRow _gradientTransition = new("过渡时长", 0, 30000, " ms");
     private readonly SliderRow _gradientMinBrightness = new("过渡亮度", 0, 100, "%");
     private readonly ComboBox _gradientAlgorithm = new();
+=======
+    private readonly SliderRow _period = new("呼吸周期", 300, 30000, " ms");
+    private readonly SliderRow _minimumBrightness = new("最低亮度", 0, 100, "%");
+    private readonly CheckBox _hardBlink = new() { Text = "硬闪烁" };
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     private readonly SequenceEditor _sequence = new();
     private Panel? _speedRow;
     private Panel? _customColorsRow;
     private Panel? _hardBlinkRow;
+<<<<<<< HEAD
     private Panel? _gradientAlgorithmRow;
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     private Panel? _effectTypeRow;
     private Label? _sequenceSection;
     private Label? _sequenceSummary;
@@ -74,6 +83,7 @@ public sealed class SettingsForm : Form
     private Panel? _musicSensitivityRow;
     private Panel? _musicAttackRow;
     private Panel? _musicReleaseRow;
+<<<<<<< HEAD
     private Label? _musicColorsSection;
     private Panel? _musicCustomColorsRow;
     private readonly ComboBox _musicResponseMode = new();
@@ -86,6 +96,9 @@ public sealed class SettingsForm : Form
         Width = 160,
         Items = { "不启用", "仅峰值", "峰值与下限" }
     };
+=======
+    private readonly ComboBox _musicResponseMode = new();
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     private readonly SliderRow _musicNoiseGate = new("噪声门", 0, 50, "%");
     private readonly SliderRow _musicBeatThreshold = new("节拍阈值", 0, 100, "%");
     private readonly CheckBox _musicEqEnabled = new() { Text = "自适应鼓点检测" };
@@ -111,8 +124,11 @@ public sealed class SettingsForm : Form
     private readonly CheckBox _appProfilesEnabled = new() { Text = "启用应用场景配置" };
     private readonly AppProfileEditor _appProfiles = new();
     private readonly ComboBox _updateInterval = new();
+<<<<<<< HEAD
     // Gamma 滑条用 10 倍整数缩放（8-30 对应 0.8-3.0），显示时除以 10
     private readonly SliderRow _brightnessGamma = new("亮度 Gamma", 8, 30, "", v => $"{v / 10.0:F1}");
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     private readonly Label _serviceSummary = new();
     private readonly Label _componentSummary = new();
     private readonly Label _controlSummary = new();
@@ -314,7 +330,11 @@ public sealed class SettingsForm : Form
         page.Controls.Add(modeRow);
 
         _effectType.DropDownStyle = ComboBoxStyle.DropDownList;
+<<<<<<< HEAD
         _effectType.Items.AddRange(["固定颜色", "RGB 循环", "单色呼吸", "循环呼吸", "脉冲", "心跳", "渐变循环"]);
+=======
+        _effectType.Items.AddRange(["固定颜色", "RGB 循环", "单色呼吸", "循环呼吸", "脉冲", "心跳"]);
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 
         _speed.DropDownStyle = ComboBoxStyle.DropDownList;
         _speed.Items.AddRange(["非常慢", "慢", "正常", "快", "很快"]);
@@ -338,7 +358,10 @@ public sealed class SettingsForm : Form
         _sequence.ShowAddButton = false;
         _customColors.Click += (_, _) => EditCustomColors();
         _period.ValueChanged += (_, _) => UpdateEffectConfigurationVisibility();
+<<<<<<< HEAD
         _gradientTransition.ValueChanged += (_, _) => UpdateEffectConfigurationVisibility();
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         _sequence.ColorsChanged += (_, _) =>
         {
             if (SelectedEffectType(EffectType.Rainbow) == EffectType.Rainbow)
@@ -357,8 +380,11 @@ public sealed class SettingsForm : Form
         _speedRow = Row("速度", _speed);
         _customColorsRow = PlainRow(_customColors);
         _hardBlinkRow = PlainRow(_hardBlink);
+<<<<<<< HEAD
         _gradientAlgorithm.DropDownStyle = ComboBoxStyle.DropDownList;
         _gradientAlgorithm.Items.AddRange(["RGB 线性插值", "HSV 空间插值"]);
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         _sequenceSection = Section("循环颜色");
         _sequenceSummary = Section("");
         _modeHint = Section("");
@@ -375,10 +401,13 @@ public sealed class SettingsForm : Form
         page.Controls.Add(_period);
         page.Controls.Add(_minimumBrightness);
         page.Controls.Add(_hardBlinkRow);
+<<<<<<< HEAD
         _gradientAlgorithmRow = Row("渐变算法", _gradientAlgorithm);
         page.Controls.Add(_gradientTransition);
         page.Controls.Add(_gradientMinBrightness);
         page.Controls.Add(_gradientAlgorithmRow);
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         page.Controls.Add(_customColorsRow);
         page.Controls.Add(_sequenceSection);
         page.Controls.Add(_sequenceSummary);
@@ -396,8 +425,12 @@ public sealed class SettingsForm : Form
         var page = CreatePage();
         _musicPreset.DropDownStyle = ComboBoxStyle.DropDownList;
         _musicResponseMode.DropDownStyle = ComboBoxStyle.DropDownList;
+<<<<<<< HEAD
         _musicResponseMode.Items.AddRange(["按电平变色", "仅亮度脉冲", "频率分布"]);
         _musicResponseMode.SelectedIndexChanged += (_, _) => UpdateMusicResponseModeVisibility();
+=======
+        _musicResponseMode.Items.AddRange(["按电平变色", "仅亮度脉冲"]);
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         SetupCombo(_musicSensitivity, MusicSensitivityValues.Select(value => $"{value:0.0}x"));
         SetupCombo(_musicAttack, MusicAttackValues.Select(value => $"{value} ms"));
         SetupCombo(_musicRelease, MusicReleaseValues.Select(value => $"{value} ms"));
@@ -429,6 +462,7 @@ public sealed class SettingsForm : Form
         page.Controls.Add(ButtonRow(_musicSavePreset, _musicCreatePreset, _musicDeletePreset));
         page.Controls.Add(Row("当前预设", _musicPresetName));
         page.Controls.Add(Row("音乐响应", _musicResponseMode));
+<<<<<<< HEAD
         _musicCustomColorsRow = PlainRow(_musicCustomColors);
         page.Controls.Add(_musicCustomColorsRow);
         _musicColorsSection = Section("节拍颜色");
@@ -438,6 +472,11 @@ public sealed class SettingsForm : Form
         page.Controls.Add(_musicFreqHue);
         page.Controls.Add(PlainRow(_musicEqualLoudness));
         page.Controls.Add(Row("动态范围", _musicDynamicRange));
+=======
+        page.Controls.Add(PlainRow(_musicCustomColors));
+        page.Controls.Add(Section("节拍颜色"));
+        page.Controls.Add(_musicSequence);
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         page.Controls.Add(_musicBaseBrightness);
         page.Controls.Add(_musicPeakBrightness);
         page.Controls.Add(PlainRow(_musicFollowSystemVolume));
@@ -563,8 +602,11 @@ public sealed class SettingsForm : Form
 
         page.Controls.Add(Section("更新"));
         page.Controls.Add(Row("自动检查更新", _updateInterval));
+<<<<<<< HEAD
         page.Controls.Add(Section("亮度"));
         page.Controls.Add(_brightnessGamma);
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         page.Controls.Add(Section("配置"));
         page.Controls.Add(Row("配置文件", configPath));
         page.Controls.Add(PlainRow(openFolder));
@@ -589,7 +631,10 @@ public sealed class SettingsForm : Form
                 EffectType.Sequence => 3,
                 EffectType.Pulse => 4,
                 EffectType.Heartbeat => 5,
+<<<<<<< HEAD
                 EffectType.GradientCycle => 6,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
                 _ => 1
             };
 
@@ -599,9 +644,12 @@ public sealed class SettingsForm : Form
             _period.Value = EffectivePeriodValue(settings.Effect);
             _minimumBrightness.Value = settings.Effect.MinimumBrightness;
             _hardBlink.Checked = settings.Effect.HardBlink;
+<<<<<<< HEAD
             _gradientTransition.Value = settings.Effect.GradientTransitionMs;
             _gradientMinBrightness.Value = settings.Effect.GradientMinBrightnessPercent;
             _gradientAlgorithm.SelectedIndex = settings.Effect.GradientAlgorithm == GradientAlgorithm.Hsv ? 1 : 0;
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             _sequence.Colors = settings.Effect.Sequence.Select(item => item.Color).ToList();
             _customSequenceColorsEnabled = settings.Effect.CustomSequenceColorsEnabled;
             _effectPresets = KeyboardSettings.CloneEffectPresets(settings.EffectPresets);
@@ -609,6 +657,7 @@ public sealed class SettingsForm : Form
             _musicCustomPresets = settings.Effect.Music.CustomPresets.Select(CloneMusicPreset).ToList();
             RefreshMusicPresetList(settings.Effect.Music.PresetName);
             _musicPresetName.Text = IsBuiltInMusicPreset(settings.Effect.Music.PresetName) ? "" : settings.Effect.Music.PresetName;
+<<<<<<< HEAD
             _musicResponseMode.SelectedIndex = settings.Effect.Music.ResponseMode switch
             {
                 MusicResponseMode.BrightnessPulse => 1,
@@ -626,6 +675,10 @@ public sealed class SettingsForm : Form
                 DynamicRangeMode.PeakAndFloor => 2,
                 _ => 1
             };
+=======
+            _musicResponseMode.SelectedIndex = settings.Effect.Music.ResponseMode == MusicResponseMode.BrightnessPulse ? 1 : 0;
+            _musicSequence.Colors = settings.Effect.Music.Colors;
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             _musicSensitivity.SelectedIndex = ClosestIndex(MusicSensitivityValues, settings.Effect.Music.Sensitivity);
             _musicAttack.SelectedIndex = ClosestIndex(MusicAttackValues, settings.Effect.Music.AttackMs);
             _musicRelease.SelectedIndex = ClosestIndex(MusicReleaseValues, settings.Effect.Music.ReleaseMs);
@@ -637,7 +690,10 @@ public sealed class SettingsForm : Form
             _musicBaseBrightness.Value = settings.Effect.Music.BaseBrightness;
             _musicPeakBrightness.Value = settings.Effect.Music.PeakBrightness;
             _musicFollowSystemVolume.Checked = settings.Effect.Music.FollowSystemVolume;
+<<<<<<< HEAD
             UpdateMusicResponseModeVisibility();
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             _idleEnabled.Checked = settings.IdleDim.Enabled;
             _idleAfter.SelectedIndex = SecondsToIdleIndex(settings.IdleDim.AfterSeconds);
             _idleBrightness.Value = settings.IdleDim.Brightness;
@@ -654,7 +710,10 @@ public sealed class SettingsForm : Form
             _appProfilesEnabled.Checked = settings.AppProfiles.Enabled;
             _appProfiles.Rules = settings.AppProfiles.Rules;
             _updateInterval.SelectedIndex = UpdateIntervalToIndex(settings.Update.CheckInterval);
+<<<<<<< HEAD
             _brightnessGamma.Value = (int)Math.Round(Math.Clamp(settings.Effect.BrightnessGamma, 0.8, 3.0) * 10);
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 
             var evening = settings.Schedule.Rules.FirstOrDefault(rule => rule.Name == "Evening");
             var night = settings.Schedule.Rules.FirstOrDefault(rule => rule.Name == "Night");
@@ -701,6 +760,7 @@ public sealed class SettingsForm : Form
             settings.Effect.HardBlink = _hardBlink.Checked;
             settings.Effect.CustomSequenceColorsEnabled = selectedEffect == EffectType.Rainbow;
             settings.Effect.Sequence = BuildSequenceColors(selectedEffect);
+<<<<<<< HEAD
             if (selectedEffect == EffectType.GradientCycle)
             {
                 settings.Effect.GradientHoldMs = _period.Value;
@@ -708,6 +768,8 @@ public sealed class SettingsForm : Form
                 settings.Effect.GradientMinBrightnessPercent = _gradientMinBrightness.Value;
                 settings.Effect.GradientAlgorithm = _gradientAlgorithm.SelectedIndex == 1 ? GradientAlgorithm.Hsv : GradientAlgorithm.Rgb;
             }
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             RememberEffect(settings, settings.Effect);
             if (settings.Effect.Type != EffectType.Off)
             {
@@ -716,6 +778,7 @@ public sealed class SettingsForm : Form
             }
 
             settings.Effect.Music.PresetName = SelectedMusicPresetName();
+<<<<<<< HEAD
             settings.Effect.Music.ResponseMode = _musicResponseMode.SelectedIndex switch
             {
                 1 => MusicResponseMode.BrightnessPulse,
@@ -738,6 +801,15 @@ public sealed class SettingsForm : Form
                 2 => DynamicRangeMode.PeakAndFloor,
                 _ => DynamicRangeMode.PeakOnly
             };
+=======
+            settings.Effect.Music.ResponseMode = _musicResponseMode.SelectedIndex == 1
+                ? MusicResponseMode.BrightnessPulse
+                : MusicResponseMode.LevelColor;
+            settings.Effect.Music.LevelColorEnabled = settings.Effect.Music.ResponseMode == MusicResponseMode.LevelColor;
+            settings.Effect.Music.Colors = NormalizedMusicColors();
+            settings.Effect.Music.LowColor = settings.Effect.Music.Colors[0];
+            settings.Effect.Music.HighColor = settings.Effect.Music.Colors[^1];
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             settings.Effect.Music.Sensitivity = MusicSensitivityValues[ClampIndex(_musicSensitivity.SelectedIndex, MusicSensitivityValues.Length)];
             settings.Effect.Music.AttackMs = MusicAttackValues[ClampIndex(_musicAttack.SelectedIndex, MusicAttackValues.Length)];
             settings.Effect.Music.ReleaseMs = MusicReleaseValues[ClampIndex(_musicRelease.SelectedIndex, MusicReleaseValues.Length)];
@@ -769,7 +841,10 @@ public sealed class SettingsForm : Form
             settings.AppProfiles.Enabled = _appProfilesEnabled.Checked;
             settings.AppProfiles.Rules = _appProfiles.Rules;
             settings.Update.CheckInterval = IndexToUpdateInterval(_updateInterval.SelectedIndex);
+<<<<<<< HEAD
             settings.Effect.BrightnessGamma = _brightnessGamma.Value / 10.0;
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             settings.Brightness = _brightness.Enabled ? _brightness.Value : settings.Brightness;
             _settingsStore.Save(settings);
             _effectChangedByUser = false;
@@ -894,7 +969,10 @@ public sealed class SettingsForm : Form
         3 => EffectType.Sequence,
         4 => EffectType.Pulse,
         5 => EffectType.Heartbeat,
+<<<<<<< HEAD
         6 => EffectType.GradientCycle,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         _ => fallback
     };
 
@@ -906,7 +984,10 @@ public sealed class SettingsForm : Form
         EffectType.Sequence => 3,
         EffectType.Pulse => 4,
         EffectType.Heartbeat => 5,
+<<<<<<< HEAD
         EffectType.GradientCycle => 6,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         _ => 1
     };
 
@@ -922,7 +1003,11 @@ public sealed class SettingsForm : Form
     private void UpdateCustomColorsButton()
     {
         var effect = SelectedEffectType(EffectType.Rainbow);
+<<<<<<< HEAD
         var visible = effect is EffectType.Static or EffectType.Rainbow or EffectType.Breathing or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat or EffectType.GradientCycle;
+=======
+        var visible = effect is EffectType.Static or EffectType.Rainbow or EffectType.Breathing or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat;
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         _customColors.Text = "自定义颜色";
         _customColors.Visible = visible;
         if (_customColorsRow is not null)
@@ -938,7 +1023,11 @@ public sealed class SettingsForm : Form
         var hideEffectParams = off || music;
         var effect = SelectedEffectType(EffectType.Rainbow);
         var singleColor = !hideEffectParams && (effect is EffectType.Static or EffectType.Breathing);
+<<<<<<< HEAD
         var sequenceVisible = !hideEffectParams && (effect is EffectType.Rainbow or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat or EffectType.GradientCycle);
+=======
+        var sequenceVisible = !hideEffectParams && (effect is EffectType.Rainbow or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat);
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 
         if (_effectTypeRow is not null)
         {
@@ -957,21 +1046,30 @@ public sealed class SettingsForm : Form
             EffectType.Rainbow => "停留时长",
             EffectType.Pulse => "脉冲周期",
             EffectType.Heartbeat => "心跳周期",
+<<<<<<< HEAD
             EffectType.GradientCycle => "停留时长",
             _ => "呼吸周期"
         };
         _period.Visible = !hideEffectParams && (effect is EffectType.Rainbow or EffectType.Breathing or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat or EffectType.GradientCycle);
+=======
+            _ => "呼吸周期"
+        };
+        _period.Visible = !hideEffectParams && (effect is EffectType.Rainbow or EffectType.Breathing or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat);
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         _minimumBrightness.Visible = !hideEffectParams && effect == EffectType.Breathing;
         if (_hardBlinkRow is not null)
         {
             _hardBlinkRow.Visible = !hideEffectParams && effect == EffectType.Breathing;
         }
+<<<<<<< HEAD
         _gradientTransition.Visible = !hideEffectParams && effect == EffectType.GradientCycle;
         _gradientMinBrightness.Visible = !hideEffectParams && effect == EffectType.GradientCycle;
         if (_gradientAlgorithmRow is not null)
         {
             _gradientAlgorithmRow.Visible = !hideEffectParams && effect == EffectType.GradientCycle;
         }
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 
         if (_customColorsRow is not null)
         {
@@ -985,7 +1083,10 @@ public sealed class SettingsForm : Form
                 EffectType.Sequence => "循环呼吸颜色",
                 EffectType.Pulse => "脉冲颜色",
                 EffectType.Heartbeat => "心跳颜色",
+<<<<<<< HEAD
                 EffectType.GradientCycle => "渐变循环颜色",
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
                 _ => "自定义循环颜色"
             };
             _sequenceSection.Visible = sequenceVisible;
@@ -998,7 +1099,11 @@ public sealed class SettingsForm : Form
         }
 
         _sequence.Visible = sequenceVisible;
+<<<<<<< HEAD
         var presetVisible = !hideEffectParams && (effect is EffectType.Static or EffectType.Rainbow or EffectType.Breathing or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat or EffectType.GradientCycle);
+=======
+        var presetVisible = !hideEffectParams && (effect is EffectType.Static or EffectType.Rainbow or EffectType.Breathing or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat);
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         if (_effectPresetSection is not null)
         {
             _effectPresetSection.Visible = presetVisible;
@@ -1117,7 +1222,11 @@ public sealed class SettingsForm : Form
 
     private void UpdateEffectPresetButtons()
     {
+<<<<<<< HEAD
         var presetVisible = SelectedEffectType(EffectType.Rainbow) is EffectType.Static or EffectType.Rainbow or EffectType.Breathing or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat or EffectType.GradientCycle;
+=======
+        var presetVisible = SelectedEffectType(EffectType.Rainbow) is EffectType.Static or EffectType.Rainbow or EffectType.Breathing or EffectType.Sequence or EffectType.Pulse or EffectType.Heartbeat;
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         var customSelected = presetVisible && _effectPreset.SelectedIndex > 0;
         _effectSavePreset.Enabled = customSelected;
         _effectCreatePreset.Enabled = presetVisible;
@@ -1381,6 +1490,7 @@ public sealed class SettingsForm : Form
                 left.HardBlink == right.HardBlink;
         }
 
+<<<<<<< HEAD
         if (left.Type == EffectType.GradientCycle)
         {
             if (left.GradientHoldMs != right.GradientHoldMs ||
@@ -1392,6 +1502,9 @@ public sealed class SettingsForm : Form
             }
         }
         else if (left.PeriodMs != right.PeriodMs)
+=======
+        if (left.PeriodMs != right.PeriodMs)
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         {
             return false;
         }
@@ -1436,6 +1549,7 @@ public sealed class SettingsForm : Form
             effect.CustomSequenceColorsEnabled = true;
         }
 
+<<<<<<< HEAD
         if (effectType == EffectType.GradientCycle)
         {
             effect.GradientHoldMs = _period.Value;
@@ -1444,6 +1558,8 @@ public sealed class SettingsForm : Form
             effect.GradientAlgorithm = _gradientAlgorithm.SelectedIndex == 1 ? GradientAlgorithm.Hsv : GradientAlgorithm.Rgb;
         }
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         return effect.Normalize();
     }
 
@@ -1458,9 +1574,12 @@ public sealed class SettingsForm : Form
             _period.Value = EffectivePeriodValue(effect);
             _minimumBrightness.Value = effect.MinimumBrightness;
             _hardBlink.Checked = effect.HardBlink;
+<<<<<<< HEAD
             _gradientTransition.Value = effect.GradientTransitionMs;
             _gradientMinBrightness.Value = effect.GradientMinBrightnessPercent;
             _gradientAlgorithm.SelectedIndex = effect.GradientAlgorithm == GradientAlgorithm.Hsv ? 1 : 0;
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             _sequence.Colors = effect.Sequence.Select(item => item.Color).ToList();
             _customSequenceColorsEnabled = effect.CustomSequenceColorsEnabled;
         }
@@ -1528,9 +1647,12 @@ public sealed class SettingsForm : Form
             case EffectType.Heartbeat:
                 settings.SavedEffects.Heartbeat = copy;
                 break;
+<<<<<<< HEAD
             case EffectType.GradientCycle:
                 settings.SavedEffects.GradientCycle = copy;
                 break;
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         }
 
         settings.SavedEffects.Normalize();
@@ -1555,11 +1677,14 @@ public sealed class SettingsForm : Form
             return Math.Clamp(holdMs, 300, 30000);
         }
 
+<<<<<<< HEAD
         if (effect.Type == EffectType.GradientCycle)
         {
             return Math.Clamp(effect.GradientHoldMs, 1, 30000);
         }
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         return effect.PeriodMs;
     }
 
@@ -1586,12 +1711,15 @@ public sealed class SettingsForm : Form
             return $"已选择 {count} 个颜色；每个颜色完成一组心跳 {_period.Value} ms，整轮约 {FormatDuration(count * _period.Value)}。";
         }
 
+<<<<<<< HEAD
         if (effect == EffectType.GradientCycle)
         {
             var total = count * (_period.Value + _gradientTransition.Value);
             return $"已选择 {count} 个颜色；停留 {_period.Value} ms，过渡 {_gradientTransition.Value} ms，整轮约 {FormatDuration(total)}。";
         }
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         var holdMs = _period.Value;
         return $"已选择 {count} 个颜色；每个颜色停留约 {holdMs} ms，整轮约 {FormatDuration(count * holdMs)}。";
     }
@@ -1866,6 +1994,7 @@ public sealed class SettingsForm : Form
     private void ApplyMusicPresetToControls(MusicPreset preset, bool refreshSelection = true, bool markDirty = true)
     {
         _musicPresetName.Text = IsBuiltInMusicPreset(preset.Name) ? "" : preset.Name;
+<<<<<<< HEAD
         _musicResponseMode.SelectedIndex = preset.ResponseMode switch
         {
             MusicResponseMode.BrightnessPulse => 1,
@@ -1883,6 +2012,10 @@ public sealed class SettingsForm : Form
             DynamicRangeMode.PeakAndFloor => 2,
             _ => 1
         };
+=======
+        _musicResponseMode.SelectedIndex = preset.ResponseMode == MusicResponseMode.BrightnessPulse ? 1 : 0;
+        _musicSequence.Colors = preset.Colors;
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         _musicSensitivity.SelectedIndex = ClosestIndex(MusicSensitivityValues, preset.Sensitivity);
         _musicAttack.SelectedIndex = ClosestIndex(MusicAttackValues, preset.AttackMs);
         _musicRelease.SelectedIndex = ClosestIndex(MusicReleaseValues, preset.ReleaseMs);
@@ -1904,7 +2037,10 @@ public sealed class SettingsForm : Form
             Text = "ClevoLEDKeyboardControl 设置 - 有未应用的更改";
         }
 
+<<<<<<< HEAD
         UpdateMusicResponseModeVisibility();
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         UpdateMusicPresetButtons();
     }
 
@@ -1919,6 +2055,7 @@ public sealed class SettingsForm : Form
     private MusicPreset BuildMusicPresetFromControls(string name)
     {
         var colors = NormalizedMusicColors();
+<<<<<<< HEAD
         var responseMode = _musicResponseMode.SelectedIndex switch
         {
             1 => MusicResponseMode.BrightnessPulse,
@@ -1945,6 +2082,15 @@ public sealed class SettingsForm : Form
                 2 => DynamicRangeMode.PeakAndFloor,
                 _ => DynamicRangeMode.PeakOnly
             },
+=======
+        return new MusicPreset
+        {
+            Name = name,
+            ResponseMode = _musicResponseMode.SelectedIndex == 1 ? MusicResponseMode.BrightnessPulse : MusicResponseMode.LevelColor,
+            LowColor = colors[0],
+            HighColor = colors[^1],
+            Colors = colors,
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             Sensitivity = MusicSensitivityValues[ClampIndex(_musicSensitivity.SelectedIndex, MusicSensitivityValues.Length)],
             AttackMs = MusicAttackValues[ClampIndex(_musicAttack.SelectedIndex, MusicAttackValues.Length)],
             ReleaseMs = MusicReleaseValues[ClampIndex(_musicRelease.SelectedIndex, MusicReleaseValues.Length)],
@@ -1983,8 +2129,12 @@ public sealed class SettingsForm : Form
 
     private void UpdateMusicAdvancedVisibility()
     {
+<<<<<<< HEAD
         var freqMode = _musicResponseMode.SelectedIndex == 2;
         var visible = _musicAdvanced.Checked && !freqMode;
+=======
+        var visible = _musicAdvanced.Checked;
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         if (_musicSensitivityRow is not null) _musicSensitivityRow.Visible = visible;
         if (_musicAttackRow is not null) _musicAttackRow.Visible = visible;
         if (_musicReleaseRow is not null) _musicReleaseRow.Visible = visible;
@@ -1993,6 +2143,7 @@ public sealed class SettingsForm : Form
         _musicEqEnabled.Visible = visible;
         _musicEqLow.Visible = visible;
         _musicEqHigh.Visible = visible;
+<<<<<<< HEAD
         _musicAdvanced.Visible = !freqMode;
     }
 
@@ -2019,6 +2170,8 @@ public sealed class SettingsForm : Form
         {
             Text = "ClevoLEDKeyboardControl 设置 - 有未应用的更改";
         }
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     }
 
     private static MusicPreset CloneMusicPreset(MusicPreset preset)
@@ -2042,10 +2195,14 @@ public sealed class SettingsForm : Form
             FollowSystemVolume = preset.FollowSystemVolume,
             EqEnabled = preset.EqEnabled,
             EqLowHz = preset.EqLowHz,
+<<<<<<< HEAD
             EqHighHz = preset.EqHighHz,
             FreqHueOffset = preset.FreqHueOffset,
             EqualLoudness = preset.EqualLoudness,
             DynamicRange = preset.DynamicRange
+=======
+            EqHighHz = preset.EqHighHz
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         }.Normalize();
     }
 
@@ -2129,11 +2286,14 @@ public sealed class SettingsForm : Form
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
             "ControlCenter",
             "InsydeDCHU.dll");
+<<<<<<< HEAD
         var controlCenterDchuDll = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
             "ControlCenter",
             "DCHU",
             "InsydeDCHU.dll");
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 
         if (File.Exists(serviceDll))
         {
@@ -2150,11 +2310,14 @@ public sealed class SettingsForm : Form
             return $"OEM Control Center 中存在，未复制到服务目录";
         }
 
+<<<<<<< HEAD
         if (File.Exists(controlCenterDchuDll))
         {
             return $"OEM Control Center DCHU 子目录中存在，未复制到服务目录";
         }
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         return "未找到";
     }
 
@@ -2220,7 +2383,10 @@ public sealed class SettingsForm : Form
         EffectType.Sequence => "循环呼吸",
         EffectType.Pulse => "脉冲",
         EffectType.Heartbeat => "心跳",
+<<<<<<< HEAD
         EffectType.GradientCycle => "渐变循环",
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         EffectType.Off => "关闭",
         _ => effect.ToString()
     };

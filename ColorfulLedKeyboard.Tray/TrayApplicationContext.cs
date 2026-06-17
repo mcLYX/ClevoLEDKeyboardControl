@@ -127,7 +127,10 @@ public sealed class TrayApplicationContext : ApplicationContext
         AddEffectPresetMenu(effect, EffectType.Sequence, "循环呼吸");
         AddEffectPresetMenu(effect, EffectType.Pulse, "脉冲");
         AddEffectPresetMenu(effect, EffectType.Heartbeat, "心跳");
+<<<<<<< HEAD
         AddEffectPresetMenu(effect, EffectType.GradientCycle, "渐变循环");
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 
         return effect;
     }
@@ -501,9 +504,12 @@ public sealed class TrayApplicationContext : ApplicationContext
             case EffectType.Heartbeat:
                 settings.SavedEffects.Heartbeat = copy;
                 break;
+<<<<<<< HEAD
             case EffectType.GradientCycle:
                 settings.SavedEffects.GradientCycle = copy;
                 break;
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         }
 
         settings.SavedEffects.Normalize();
@@ -521,7 +527,10 @@ public sealed class TrayApplicationContext : ApplicationContext
             EffectType.Sequence => KeyboardSettings.CloneEffect(settings.SavedEffects.Sequence),
             EffectType.Pulse => KeyboardSettings.CloneEffect(settings.SavedEffects.Pulse),
             EffectType.Heartbeat => KeyboardSettings.CloneEffect(settings.SavedEffects.Heartbeat),
+<<<<<<< HEAD
             EffectType.GradientCycle => KeyboardSettings.CloneEffect(settings.SavedEffects.GradientCycle),
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             _ => KeyboardSettings.CloneEffect(settings.Effect)
         };
         settings.Effect.Type = effect;
@@ -538,7 +547,10 @@ public sealed class TrayApplicationContext : ApplicationContext
             EffectType.Sequence => KeyboardMode.Sequence,
             EffectType.Pulse => KeyboardMode.Pulse,
             EffectType.Heartbeat => KeyboardMode.Heartbeat,
+<<<<<<< HEAD
             EffectType.GradientCycle => KeyboardMode.GradientCycle,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             EffectType.Off => KeyboardMode.Off,
             _ => settings.Mode
         };
@@ -561,7 +573,10 @@ public sealed class TrayApplicationContext : ApplicationContext
             EffectType.Sequence => KeyboardMode.Sequence,
             EffectType.Pulse => KeyboardMode.Pulse,
             EffectType.Heartbeat => KeyboardMode.Heartbeat,
+<<<<<<< HEAD
             EffectType.GradientCycle => KeyboardMode.GradientCycle,
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             EffectType.Off => KeyboardMode.Off,
             _ => settings.Mode
         };

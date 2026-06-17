@@ -155,6 +155,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
         }
     }
 
+<<<<<<< HEAD
     /// <summary>
     /// 一次计算返回三频段的原始能量与 A-weighting 加权能量。
     /// 原始能量用于亮度（反映物理响度），加权能量用于颜色比例（人耳等响度补偿）。
@@ -249,6 +250,8 @@ internal sealed class AudioBandLevelMeter : IDisposable
         return (Math.Sqrt(rawTotal / count) / norm, Math.Sqrt(weightedTotal / count) / norm);
     }
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     private ReadOnlySpan<float> AcquireSnapshot(out int sampleRate, out bool snapshotAcquired)
     {
         lock (_sync)
@@ -693,6 +696,7 @@ internal sealed class AudioBandLevelMeter : IDisposable
 
     private readonly record struct BandDefinition(int LowHz, int HighHz, double Gain);
 }
+<<<<<<< HEAD
 
 public readonly record struct TriBandLevels(double Low, double Mid, double High);
 
@@ -700,3 +704,5 @@ public readonly record struct TriBandLevels(double Low, double Mid, double High)
 /// 三频段分析结果：Raw 为原始能量（用于亮度），Weighted 为 A-weighting 加权能量（用于颜色比例）。
 /// </summary>
 public readonly record struct TriBandAnalysis(TriBandLevels Raw, TriBandLevels Weighted);
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da

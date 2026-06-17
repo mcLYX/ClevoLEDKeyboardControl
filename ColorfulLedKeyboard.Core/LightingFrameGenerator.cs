@@ -34,7 +34,10 @@ public sealed class LightingFrameGenerator
             EffectType.Rainbow => Rainbow(elapsedMs),
             EffectType.Pulse => PatternColor(elapsedMs, PulseFactor),
             EffectType.Heartbeat => PatternColor(elapsedMs, HeartbeatFactor),
+<<<<<<< HEAD
             EffectType.GradientCycle => GradientCycle(elapsedMs),
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             _ => RgbColor.Black
         };
 
@@ -66,8 +69,11 @@ public sealed class LightingFrameGenerator
         var wave = (1 - Math.Cos(phase * Math.PI * 2)) / 2d;
         var min = _settings.Effect.MinimumBrightness / 100d;
         var factor = min + (1 - min) * wave;
+<<<<<<< HEAD
         // 应用全局 gamma 校正到亮度调制因子
         factor = ApplyGamma(factor);
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         return color.Scale((int)Math.Round(factor * 100));
     }
 
@@ -120,11 +126,19 @@ public sealed class LightingFrameGenerator
     private static double SegmentDurationMs(SequenceColor item) =>
         Math.Max(1, Math.Max(0, item.HoldMs) + Math.Max(0, item.TransitionMs));
 
+<<<<<<< HEAD
     private RgbColor BreathingColor(RgbColor color, double elapsedMs, double periodMs)
     {
         var phase = elapsedMs % periodMs / periodMs;
         var wave = (1 - Math.Cos(phase * Math.PI * 2)) / 2d;
         return color.Scale((int)Math.Round(ApplyGamma(wave) * 100));
+=======
+    private static RgbColor BreathingColor(RgbColor color, double elapsedMs, double periodMs)
+    {
+        var phase = elapsedMs % periodMs / periodMs;
+        var wave = (1 - Math.Cos(phase * Math.PI * 2)) / 2d;
+        return color.Scale((int)Math.Round(wave * 100));
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     }
 
     private RgbColor PatternColor(double elapsedMs, Func<double, double> factorAtPhase)
@@ -139,6 +153,7 @@ public sealed class LightingFrameGenerator
         var patternIndex = (long)Math.Floor(Math.Max(0, elapsedMs) / periodMs);
         var color = RgbColor.FromHex(sequence[(int)(patternIndex % sequence.Count)].Color);
         var phase = Math.Max(0, elapsedMs) % periodMs / periodMs;
+<<<<<<< HEAD
         return color.Scale((int)Math.Round(ApplyGamma(Math.Clamp(factorAtPhase(phase), 0, 1)) * 100));
     }
 
@@ -149,6 +164,9 @@ public sealed class LightingFrameGenerator
     {
         var gamma = Math.Clamp(_settings.Effect.BrightnessGamma, 0.8, 3.0);
         return Math.Pow(Math.Clamp(factor, 0, 1), gamma);
+=======
+        return color.Scale((int)Math.Round(Math.Clamp(factorAtPhase(phase), 0, 1) * 100));
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     }
 
     private static double PulseFactor(double phase)
@@ -181,6 +199,7 @@ public sealed class LightingFrameGenerator
         return 0;
     }
 
+<<<<<<< HEAD
     private RgbColor GradientCycle(double elapsedMs)
     {
         var sequence = _settings.Effect.Sequence;
@@ -232,6 +251,8 @@ public sealed class LightingFrameGenerator
         return interpolated.Scale(finalBrightness);
     }
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     private static double SmoothStep(double value)
     {
         value = Math.Clamp(value, 0, 1);

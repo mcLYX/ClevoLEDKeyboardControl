@@ -71,6 +71,7 @@ public readonly record struct RgbColor(byte R, byte G, byte B)
             (byte)Math.Round((g + m) * 255),
             (byte)Math.Round((b + m) * 255));
     }
+<<<<<<< HEAD
 
     public (double Hue, double Saturation, double Value) ToHsv()
     {
@@ -129,4 +130,6 @@ public readonly record struct RgbColor(byte R, byte G, byte B)
 
         return FromHsv(h, s, v);
     }
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 }

@@ -24,6 +24,7 @@ public sealed class LightingEffectSettings
         new SequenceColor { Color = "#0000FF" }
     ];
 
+<<<<<<< HEAD
     public int GradientHoldMs { get; set; } = 1500;
 
     public int GradientTransitionMs { get; set; } = 1500;
@@ -37,6 +38,8 @@ public sealed class LightingEffectSettings
     /// </summary>
     public double BrightnessGamma { get; set; } = 1.0;
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     public MusicSettings Music { get; set; } = new();
 
     public LightingEffectSettings Normalize()
@@ -51,6 +54,7 @@ public sealed class LightingEffectSettings
         IntervalMs = Math.Clamp(IntervalMs, 20, 500);
         PeriodMs = Math.Clamp(PeriodMs, 300, 30000);
         MinimumBrightness = Math.Clamp(MinimumBrightness, 0, 100);
+<<<<<<< HEAD
         GradientHoldMs = Math.Clamp(GradientHoldMs, 0, 30000);
         GradientTransitionMs = Math.Clamp(GradientTransitionMs, 0, 30000);
         GradientMinBrightnessPercent = Math.Clamp(GradientMinBrightnessPercent, 0, 100);
@@ -59,6 +63,8 @@ public sealed class LightingEffectSettings
         {
             GradientAlgorithm = GradientAlgorithm.Rgb;
         }
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         Sequence = NormalizeSequence(Sequence);
         Music ??= new MusicSettings();
         Music.Normalize();

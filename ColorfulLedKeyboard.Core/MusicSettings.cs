@@ -57,12 +57,15 @@ public sealed class MusicSettings : IMusicTunable
 
     public int EqHighHz { get; set; } = 5000;
 
+<<<<<<< HEAD
     public int FreqHueOffset { get; set; } = 0;
 
     public bool EqualLoudness { get; set; } = true;
 
     public DynamicRangeMode DynamicRange { get; set; } = DynamicRangeMode.PeakOnly;
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     public SpotifySettings Spotify { get; set; } = new();
 
     public List<MusicPreset> CustomPresets { get; set; } = [];
@@ -107,9 +110,12 @@ public sealed class MusicSettings : IMusicTunable
         EqEnabled = preset.EqEnabled;
         EqLowHz = preset.EqLowHz;
         EqHighHz = preset.EqHighHz;
+<<<<<<< HEAD
         FreqHueOffset = preset.FreqHueOffset;
         EqualLoudness = preset.EqualLoudness;
         DynamicRange = preset.DynamicRange;
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         Normalize();
     }
 
@@ -134,10 +140,14 @@ public sealed class MusicSettings : IMusicTunable
             FollowSystemVolume = FollowSystemVolume,
             EqEnabled = EqEnabled,
             EqLowHz = EqLowHz,
+<<<<<<< HEAD
             EqHighHz = EqHighHz,
             FreqHueOffset = FreqHueOffset,
             EqualLoudness = EqualLoudness,
             DynamicRange = DynamicRange
+=======
+            EqHighHz = EqHighHz
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         }.Normalize();
     }
 
@@ -281,6 +291,7 @@ public sealed class MusicSettings : IMusicTunable
 public enum MusicResponseMode
 {
     LevelColor = 0,
+<<<<<<< HEAD
     BrightnessPulse = 1,
     FrequencyDistribution = 2
 }
@@ -294,6 +305,9 @@ public enum DynamicRangeMode
     None = 0,
     PeakOnly = 1,
     PeakAndFloor = 2
+=======
+    BrightnessPulse = 1
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 }
 
 public sealed class MusicPreset : IMusicTunable
@@ -334,12 +348,15 @@ public sealed class MusicPreset : IMusicTunable
 
     public int EqHighHz { get; set; } = 5000;
 
+<<<<<<< HEAD
     public int FreqHueOffset { get; set; } = 0;
 
     public bool EqualLoudness { get; set; } = true;
 
     public DynamicRangeMode DynamicRange { get; set; } = DynamicRangeMode.PeakOnly;
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     public MusicPreset Normalize()
     {
         Name = string.IsNullOrWhiteSpace(Name) ? "" : Name.Trim();

@@ -166,6 +166,7 @@ public class Worker : BackgroundService
         var nextRuntimeRefresh = DateTimeOffset.UtcNow.AddSeconds(1);
         RgbColor? lastColor = null;
 
+<<<<<<< HEAD
         // 频率分布模式的平滑状态
         // 颜色组：根据 EqualLoudness 开关选择原始或加权，用于颜色比例
         var freqSmoothLow = 0d;
@@ -180,6 +181,8 @@ public class Worker : BackgroundService
         const double floorHalfLifeSeconds = 20.0;
         var freqLastUpdate = DateTimeOffset.MinValue;
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         // 进入音乐模式立刻刷一次状态文件，避免 Tray 看到陈旧值
         _audioSource.RefreshNow();
 
@@ -197,6 +200,7 @@ public class Worker : BackgroundService
                     }
                 }
 
+<<<<<<< HEAD
                 if (music.ResponseMode == MusicResponseMode.FrequencyDistribution)
                 {
                     // 频率分布模式：不做节拍检测，直接映射三频能量到颜色
@@ -356,6 +360,26 @@ public class Worker : BackgroundService
                         _device.SetColor(color);
                         lastColor = color;
                     }
+=======
+                // 永远调 meter（同 v1.3）：静音 → envelope=0 → 灯自然降到 BaseBrightness 颜色保持。
+                // HFP 屏蔽在 meter 内部处理（Status==Hfp 时 EnsureCapture 跳过、不激活 SCO）。
+                var level = music.EqEnabled
+                    ? Math.Max(_audioBandLevelMeter.GetAdaptiveBeatLevel(music), _audioLevelMeter.GetPeakLevel() * 0.12f)
+                    : _audioLevelMeter.GetPeakLevel();
+                var systemVolume = _audioLevelMeter.GetMasterVolumeScalar();
+                var frame = controller.Next(music, level, systemVolume, musicColors.Count);
+                var envelope = frame.Envelope;
+                var musicBrightness = music.BaseBrightness +
+                    (music.PeakBrightness - music.BaseBrightness) * Math.Pow(envelope, 0.55);
+                var brightness = (int)Math.Clamp(Math.Round(musicBrightness), music.BaseBrightness, music.PeakBrightness);
+                var sourceColor = musicColors[frame.ColorIndex % musicColors.Count];
+                var color = ApplyNotificationFlash(sourceColor.Scale(brightness), settings);
+
+                if (color != lastColor)
+                {
+                    _device.SetColor(color);
+                    lastColor = color;
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
                 }
 
                 await Task.Delay(music.IntervalMs, stoppingToken);
@@ -368,12 +392,15 @@ public class Worker : BackgroundService
         }
     }
 
+<<<<<<< HEAD
     private static double FreqSmooth(double current, double target, double dtSeconds, double timeConstantSeconds)
     {
         var alpha = 1 - Math.Exp(-dtSeconds / Math.Max(0.001, timeConstantSeconds));
         return current + (target - current) * alpha;
     }
 
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     private static RgbColor ApplyNotificationFlash(RgbColor color, KeyboardSettings settings)
     {
         var flash = settings.NotificationFlash.Normalize();
@@ -454,10 +481,13 @@ public class Worker : BackgroundService
             next.Effect.MinimumBrightness != current.Effect.MinimumBrightness ||
             next.Effect.HardBlink != current.Effect.HardBlink ||
             next.Effect.CustomSequenceColorsEnabled != current.Effect.CustomSequenceColorsEnabled ||
+<<<<<<< HEAD
             next.Effect.GradientHoldMs != current.Effect.GradientHoldMs ||
             next.Effect.GradientTransitionMs != current.Effect.GradientTransitionMs ||
             next.Effect.GradientMinBrightnessPercent != current.Effect.GradientMinBrightnessPercent ||
             next.Effect.GradientAlgorithm != current.Effect.GradientAlgorithm ||
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             !MusicEquals(next.Effect.Music, current.Effect.Music) ||
             next.Effect.Sequence.Count != current.Effect.Sequence.Count ||
             next.Effect.Sequence.Zip(current.Effect.Sequence).Any(pair =>
@@ -505,9 +535,12 @@ public class Worker : BackgroundService
             left.EqEnabled == right.EqEnabled &&
             left.EqLowHz == right.EqLowHz &&
             left.EqHighHz == right.EqHighHz &&
+<<<<<<< HEAD
             left.FreqHueOffset == right.FreqHueOffset &&
             left.EqualLoudness == right.EqualLoudness &&
             left.DynamicRange == right.DynamicRange &&
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
             left.CustomPresets.Count == right.CustomPresets.Count &&
             left.CustomPresets.Zip(right.CustomPresets).All(pair => MusicPresetEquals(pair.First, pair.Second));
     }
@@ -532,10 +565,14 @@ public class Worker : BackgroundService
             left.FollowSystemVolume == right.FollowSystemVolume &&
             left.EqEnabled == right.EqEnabled &&
             left.EqLowHz == right.EqLowHz &&
+<<<<<<< HEAD
             left.EqHighHz == right.EqHighHz &&
             left.FreqHueOffset == right.FreqHueOffset &&
             left.EqualLoudness == right.EqualLoudness &&
             left.DynamicRange == right.DynamicRange;
+=======
+            left.EqHighHz == right.EqHighHz;
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     }
 
     private async Task FlashStartupAsync(CancellationToken stoppingToken)

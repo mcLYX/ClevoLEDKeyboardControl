@@ -16,7 +16,10 @@ function Get-DriverCandidatePaths {
         $env:CLEVO_DRIVER_DLL
     }
 
+<<<<<<< HEAD
     Join-Path $root "assets\$driverDllName"
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
     Join-Path $root "assets\driver\$driverDllName"
 
     $programRoots = @(
@@ -28,7 +31,10 @@ function Get-DriverCandidatePaths {
     foreach ($programRoot in $programRoots) {
         foreach ($folder in @("ControlCenter", "Control Center", "ControlCenter3", "Control Center 3.0")) {
             Join-Path (Join-Path $programRoot $folder) $driverDllName
+<<<<<<< HEAD
             Join-Path (Join-Path (Join-Path $programRoot $folder) "DCHU") $driverDllName
+=======
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
         }
     }
 }
@@ -80,6 +86,7 @@ if ($driverSource) {
     Write-Host "Bundled $driverDllName from $driverSource"
 }
 else {
+<<<<<<< HEAD
     $builtinAsset = Join-Path $root "assets\$driverDllName"
     if (Test-Path -LiteralPath $builtinAsset) {
         Copy-Item -LiteralPath $builtinAsset -Destination (Join-Path $payloadStage "Service\$driverDllName") -Force
@@ -88,6 +95,9 @@ else {
     else {
         Write-Warning "$driverDllName was not found on this system or in assets. The setup executable will still be built; it will try to copy the driver from the user's OEM Control Center during installation."
     }
+=======
+    Write-Warning "$driverDllName was not found. The setup executable will still be built; it will try to copy the driver from the user's OEM Control Center during installation."
+>>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 }
 Compress-Archive -Path (Join-Path $payloadStage "*") -DestinationPath $installerPayload -Force
 
