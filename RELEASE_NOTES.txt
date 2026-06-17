@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ClevoLEDKeyboardControl v1.4.0
 
 新增功能：
@@ -34,7 +33,6 @@ ClevoLEDKeyboardControl v1.4.0
 ---
 
 =======
->>>>>>> 2beb8d3a848539fc77879fface237c4558dd70da
 ClevoLEDKeyboardControl v1.3.0
 
 新增功能：
